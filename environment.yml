@@ -1,4 +1,4 @@
-name: dmplug
+name: NHMC
 channels:
   - pytorch
   - defaults
