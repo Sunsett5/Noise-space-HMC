@@ -65,12 +65,13 @@ sed -i 's/\bmodels\./bkse.models./g' bkse/models/backbones/resnet.py
 git clone https://github.com/LeviBorodenko/motionblur motionblur
 ```
 
-Install dependencies
+Install dependencies. Change root in sed command to your env location.
 
 ```
 conda env create -f environment.yml
 conda activate NHMC
 sed -i 's/torch\._six\.string_classes/str/g' /root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
+sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /root/.local/lib/python3.8/site-packages/lpips/lpips.py
 ```
 
 
