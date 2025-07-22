@@ -3,16 +3,11 @@ import argparse, os, yaml
 import torch
 import torchvision.utils as tvu
 import numpy as np
-from PIL import Image
-from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 from skimage.metrics import structural_similarity as ssim
 import matplotlib.pyplot as plt
-from util.img_utils import Blurkernel, clear_color, generate_tilt_map, mask_generator
 from util.early_stop import EarlyStop
-from guided_diffusion.measurements import get_noise, get_operator
 from guided_diffusion.unet import create_model
 from ddim_sampler import *
-import shutil
 import lpips
 from tqdm import tqdm
 
@@ -432,6 +427,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
     loss_fn_vgg = lpips.LPIPS(net='vgg').cuda()
     
     for x_orig, classes in pbar:
+
         x_orig = x_orig.to(device)
         x_orig = data_transform(config, x_orig)
 
@@ -476,23 +472,25 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             with torch.no_grad():
                 xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True)
 
-        x = [inverse_data_transform(config, y) for y in xt]
+        with torch.no_grad():
 
-        for j in range(len(x)):
-            tvu.save_image(
-                x[j], os.path.join(opt.image_folder, f"{idx_so_far + j}_{i}.png")
-            )
-            if i == len(x)-1 or i == -1:
-                orig = inverse_data_transform(config, x_orig[j])
-                mse = torch.mean((x[j].to(device) - orig) ** 2)
-                psnr = 10 * torch.log10(1 / mse)
-                avg_psnr += psnr
-                avg_ssim += ssim(x[j].detach().cpu().numpy(), orig.detach().cpu().numpy(), data_range=x[j].detach().cpu().numpy().max() - x[j].detach().cpu().numpy().min(), channel_axis=0)
-                LPIPS = loss_fn_vgg(2*orig-1.0, 2*torch.tensor(x[j]).to(torch.float32).cuda()-1.0)
-                avg_lpips += LPIPS[0,0,0,0]
-        idx_so_far += y_0.shape[0]
+            x = [inverse_data_transform(config, y) for y in xt]
 
-        pbar.set_description("PSNR:{}, SSIM:{}, LPIPS:{}".format(avg_psnr / (idx_so_far - idx_init), avg_ssim / (idx_so_far - idx_init), avg_lpips / (idx_so_far - idx_init)))
+            for j in range(len(x)):
+                tvu.save_image(
+                    x[j], os.path.join(opt.image_folder, f"{idx_so_far + j}_{i}.png")
+                )
+                if i == len(x)-1 or i == -1:
+                    orig = inverse_data_transform(config, x_orig[j])
+                    mse = torch.mean((x[j].to(device) - orig) ** 2)
+                    psnr = 10 * torch.log10(1 / mse)
+                    avg_psnr += psnr
+                    avg_ssim += ssim(x[j].detach().cpu().numpy(), orig.detach().cpu().numpy(), data_range=x[j].detach().cpu().numpy().max() - x[j].detach().cpu().numpy().min(), channel_axis=0)
+                    LPIPS = loss_fn_vgg(2*orig-1.0, 2*torch.tensor(x[j]).to(torch.float32).cuda()-1.0)
+                    avg_lpips += LPIPS[0,0,0,0]
+            idx_so_far += y_0.shape[0]
+
+            pbar.set_description("PSNR:{}, SSIM:{}, LPIPS:{}".format(avg_psnr / (idx_so_far - idx_init), avg_ssim / (idx_so_far - idx_init), avg_lpips / (idx_so_far - idx_init)))
 
     avg_psnr = avg_psnr / (idx_so_far - idx_init)
     avg_ssim = avg_ssim / (idx_so_far - idx_init)
