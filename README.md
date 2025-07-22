@@ -22,8 +22,9 @@ From the [link](https://github.com/openai/guided-diffusion), download the checkp
 
 ```
 mkdir -p models
-wget https://drive.google.com/file/d/1BGwhRWUoguF-D8wlZ65tf227gp3cDUDh/view -P ./models
-wget https://drive.google.com/file/d/1wSoA5fm_d6JBZk4RZ1SzWLMgev4WqH21/view -P ./models
+pip3 install gdown
+gdown https://drive.google.com/uc?id=1BGwhRWUoguF-D8wlZ65tf227gp3cDUDh -O ./models/ffhq_10m.pt
+gdown https://drive.google.com/uc?id=1wSoA5fm_d6JBZk4RZ1SzWLMgev4WqH21 -O ./models/celeba_hq.ckpt
 ```
 
 Prepare folder storing outputs from experiments.
