@@ -10,6 +10,7 @@ dependencies:
   - torchvision=0.8.1
   - numpy=1.19.2
   - pip:
+    - matplotlib==3.7.5
     - albumentations==0.4.3
     - opencv-python==4.1.2.30
     - pudb==2019.2
@@ -24,5 +25,4 @@ dependencies:
     - transformers==4.3.1
     - diffusers==0.26.2
     - lpips==0.1.4
-    - -e src/taming-transformers
-    - -e src/clip
+  
