@@ -1,7 +1,7 @@
 import torch
 from algos.base_algo import Base_Algo
 
-class DMPlug(Base_Algo):
+class Unconditional(Base_Algo):
     def __init__(self, model, H_funcs, sigma_0, cls_fn=None):
         super().__init__(model, H_funcs, sigma_0, cls_fn)
 
