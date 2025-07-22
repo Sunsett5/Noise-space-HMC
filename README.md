@@ -27,6 +27,13 @@ gdown https://drive.google.com/uc?id=1BGwhRWUoguF-D8wlZ65tf227gp3cDUDh -O ./mode
 gdown https://drive.google.com/uc?id=1wSoA5fm_d6JBZk4RZ1SzWLMgev4WqH21 -O ./models/celeba_hq.ckpt
 ```
 
+Download the checkpoint "GOPRO_wVAE.pth"
+
+```
+gdown https://drive.google.com/uc?id=1vRoDpIsrTRYZKsOMPNbPcMtFDpCT6Foy -O ./experiments/pretrained/
+```
+
+
 Prepare folder storing outputs from experiments.
 
 ```
@@ -51,6 +58,9 @@ We use the external codes for motion-blurring and non-linear deblurring.
 
 ```
 git clone https://github.com/VinAIResearch/blur-kernel-space-exploring bkse
+sed -i 's/\bmodels\./bkse.models./g' bkse/models/kernel_encoding/kernel_wizard.py
+sed -i 's/\bmodels\./bkse.models./g' bkse/models/kernel_encoding/image_base_model.py
+sed -i 's/\bmodels\./bkse.models./g' bkse/models/backbones/resnet.py
 
 git clone https://github.com/LeviBorodenko/motionblur motionblur
 ```
@@ -60,6 +70,7 @@ Install dependencies
 ```
 conda env create -f environment.yml
 conda activate NHMC
+sed -i 's/torch\._six\.string_classes/str/g' /root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
 ```
 
 
