@@ -532,18 +532,18 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     psnr_list = []
 
     psnr = 0
-    epochs = 2000
-    buffer_size = 10
-    patience = 50
+    epochs = 3000
+    buffer_size = 50
+    patience = 300
     earlystop = EarlyStop(size=buffer_size,patience=patience)
     variance_history = []
 
     for epoch in range(epochs):
         optimizer.zero_grad()
         xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
-        x_save = [inverse_data_transform(config, y) for y in xt]
+        x_save = [inverse_data_transform(config, y) for y in xt.detach()]
         for j in range(len(x_save)):
-            r_img_np = xt.reshape(-1)
+            r_img_np = xt.detach().reshape(-1)
             earlystop.update_img_collection(r_img_np)
             img_collection = earlystop.get_img_collection()
             if len(img_collection) == buffer_size:
@@ -562,39 +562,44 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
             #tvu.save_image(
             #    x_save[j], os.path.join(opt.image_folder, f"dmplug_{epoch}.png")
             #)
-            """ mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
-            psnr = 10 * torch.log10(1 / mse)
-            psnr_list.append(psnr.item())
-            print('PSNR:', psnr.item(), 'count:', earlystop.wait_count) """
+            #mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
+            #psnr = 10 * torch.log10(1 / mse)
+            #psnr_list.append(psnr.item())
+            #print('PSNR:', psnr.item(), 'count:', earlystop.wait_count)
         error = y_0 - H_funcs.H(xt)
         loss = torch.sum(error**2)
         loss.backward()
         optimizer.step()
+        
 
     # plot the PSNR
-    fig, ax = plt.subplots(figsize=(10, 5))
+    """ fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(psnr_list, label='PSNR')
     ax.set_xlabel('Epoch')
     ax.set_ylabel('PSNR')
-    plt.savefig(os.path.join(opt.image_folder, 'dmplug_psnr.png'))
+    plt.savefig(os.path.join(opt.image_folder, 'dmplug_psnr.png')) """
 
     return xt.detach()
 
 def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     x = x.requires_grad_()
+    x_last_accept = x.detach().clone().requires_grad_(True)
     sigma_y = opt.sigma_y
     tau = opt.tau
     epsilon = opt.epsilon
     L = max(1,math.floor(tau/epsilon))
     prev_loss = float('inf')
-    epochs = 30
+    epochs = 400
 
     orig_pic = []
     for j in range(len(x_orig)):
         orig_pic.append(inverse_data_transform(config, x_orig[j]))
     psnr_list = []
+    #cosine_list = [0.0]
+    loss_list = []
 
     prev_delta = None
+    accepted = 0
     rejected = 0
 
     for epoch in range(epochs):
@@ -632,57 +637,73 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         accept = torch.rand(1).item() < acceptance_ratio.item()
         #print('Acceptance ratio:', acceptance_ratio.item(), 'Delta:', delta_H.item(), 'Accept:', accept)
         if accept:
+            accepted += 1
             rejected = 0
-            if opt.annealed_temp and loss.detach().item() < prev_loss and epoch < 50:
-                sigma_y = sigma_y * 0.85
-                prev_loss = loss.detach().item()
-                #tau = tau * 0.95
-                #epsilon = epsilon * 0.95
-                #L = max(1,math.floor(tau/epsilon))
+            loss_list.append(loss.detach().item())
+            if len(loss_list) > 10:
+                loss_list.pop(0)
+            if opt.annealed_temp and loss.detach().item() < prev_loss:
+                if epoch < 20:
+                    sigma_y = sigma_y * 0.8
+                    print('Annealed sigma_y:', sigma_y)
+                    prev_loss = loss.detach().item()
+                else:
+                    print((1-loss.item()/loss_list[0])*100)
+                    if accepted % 10 == 0:
+                        sigma_y = sigma_y * 0.9
+                        print('Annealed sigma_y:', sigma_y)
+                        prev_loss = loss.detach().item()
 
             """ current_delta = x_proposal.detach() - x.detach()
             if prev_delta is not None:
                 cosine = torch.sum(prev_delta * current_delta, dim=(1, 2, 3)) / (torch.sum(prev_delta**2, dim=(1, 2, 3))**0.5 * torch.sum(current_delta**2, dim=(1, 2, 3))**0.5)
-                if cosine > -0.005:
-                    x_save = [inverse_data_transform(config, y) for y in xt]
-                    for j in range(len(x_save)):
-                        #tvu.save_image(
-                        #    x_save[j], os.path.join(opt.image_folder, f"hmc_{epoch}.png")
-                        #)
-                        mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
-                        psnr = 10 * torch.log10(1 / mse)
-                        psnr_list.append(psnr.item())
-                        print('PSNR almost:', psnr.item())
-                    return x_accept """
+                #if cosine > -0.005:
+                #    return x_accept
+                cosine_list.append(cosine.item())
+            prev_delta = current_delta.clone() """
                 
             x_accept = xt.detach().clone()
             #prev_delta = current_delta.clone()
             x = x_proposal.detach().clone().requires_grad_(True)
-            x_save = [inverse_data_transform(config, y) for y in xt]
-
-            """ for j in range(len(x_save)):
+            x_save = [inverse_data_transform(config, y) for y in xt.detach()]
+            for j in range(len(x_save)):
                 #tvu.save_image(
                 #    x_save[j], os.path.join(opt.image_folder, f"hmc_{epoch}.png")
                 #)
                 mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
                 psnr = 10 * torch.log10(1 / mse)
                 psnr_list.append(psnr.item())
-                print('epoch', epoch, 'PSNR:', psnr.item()) """
+                print('epoch', epoch, 'PSNR:', psnr.item())
         else:
             rejected += 1
             if rejected > 2:
                 tau = tau * 0.8
+                print('Rejected too many times, annealing tau:', tau)
                 epsilon = epsilon * 0.8
                 L = max(1,math.floor(tau/epsilon))
                 rejected = 0
             continue
 
-    # plot the PSNR
-    """ fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(psnr_list, label='PSNR')
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('PSNR')
-    plt.savefig(os.path.join(opt.image_folder, 'hmc_psnr.png')) """
+    skip = 10
+    # plot the PSNR, cosine similarity, loss in the same graph
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    ax1.plot(psnr_list[skip:], 'g-', label='PSNR')
+
+    ax2 = ax1.twinx()
+    ax2.plot(loss_list[skip:], 'b-', label='Series 2')
+    ax2.set_ylabel('Series 2', color='b')
+
+    """ax3 = ax1.twinx()
+    ax3.spines['right'].set_position(('outward', 60))  # shift third axis
+    ax3.plot(step_size_list[skip:], 'r-', label='Series 3')
+    ax3.set_ylabel('Series 3', color='r')
+
+    # Optional: Combine legends
+    lines = ax1.get_lines() + ax2.get_lines() + ax3.get_lines()
+    labels = [line.get_label() for line in lines]
+    ax1.legend(lines, labels, loc='upper left') """
+
+    plt.savefig(os.path.join(opt.image_folder, 'hmc_combined.png'), bbox_inches='tight')
 
     if opt.refine:
         xt = dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
