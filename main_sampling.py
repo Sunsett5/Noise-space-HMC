@@ -598,8 +598,9 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     for j in range(len(x_orig)):
         orig_pic.append(inverse_data_transform(config, x_orig[j]))
     psnr_list = []
-    #cosine_list = [0.0]
     loss_list = []
+    current_loss_list = []
+    mad_list = []
 
     prev_delta = None
     accepted = 0
@@ -638,36 +639,31 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         delta_H = H_proposal - H
         acceptance_ratio = min(torch.tensor([1], device=device), torch.exp(-delta_H))
         accept = torch.rand(1).item() < acceptance_ratio.item()
-        #print('Acceptance ratio:', acceptance_ratio.item(), 'Delta:', delta_H.item(), 'Accept:', accept)
         if accept:
             accepted += 1
             rejected = 0
             loss_list.append(loss.detach().item())
-            if len(loss_list) > 10:
-                loss_list.pop(0)
-            if opt.annealed_temp and loss.detach().item() < prev_loss:
-                if epoch < 20:
-                    sigma_y = sigma_y * 0.8
+            #current_loss_list.append(loss.detach().item())
+            #mad = compute_mad2(current_loss_list)
+            mad = compute_mad(loss_list, window=20)
+            mad_list.append(mad)
+            if opt.annealed_temp:
+                if sigma_y > 0.5 and loss.detach().item() < prev_loss:
+                    sigma_y = sigma_y * 0.9
                     print('Annealed sigma_y:', sigma_y)
                     prev_loss = loss.detach().item()
                 else:
-                    print((1-loss.item()/loss_list[0])*100)
-                    if accepted % 10 == 0:
+                    loss_change = (-loss.detach().item() + prev_loss) / mad
+                    print('loss change over mad', loss_change)
+                    if loss_change > 5:
                         sigma_y = sigma_y * 0.9
-                        print('Annealed sigma_y:', sigma_y)
+                        print('              ANNEALED sigma_y:', sigma_y)
                         prev_loss = loss.detach().item()
+                        current_loss_list = []
 
-            """ current_delta = x_proposal.detach() - x.detach()
-            if prev_delta is not None:
-                cosine = torch.sum(prev_delta * current_delta, dim=(1, 2, 3)) / (torch.sum(prev_delta**2, dim=(1, 2, 3))**0.5 * torch.sum(current_delta**2, dim=(1, 2, 3))**0.5)
-                #if cosine > -0.005:
-                #    return x_accept
-                cosine_list.append(cosine.item())
-            prev_delta = current_delta.clone() """
-                
             x_accept = xt.detach().clone()
-            #prev_delta = current_delta.clone()
             x = x_proposal.detach().clone().requires_grad_(True)
+    
             x_save = [inverse_data_transform(config, y) for y in xt.detach()]
             for j in range(len(x_save)):
                 #tvu.save_image(
@@ -691,20 +687,28 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     # plot the PSNR, cosine similarity, loss in the same graph
     fig, ax1 = plt.subplots(figsize=(10, 5))
     ax1.plot(psnr_list[skip:], 'g-', label='PSNR')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('PSNR', color='g')
 
     ax2 = ax1.twinx()
-    ax2.plot(loss_list[skip:], 'b-', label='Series 2')
-    ax2.set_ylabel('Series 2', color='b')
+    ax2.plot(loss_list[skip:], 'b-', label='Loss')
+    ax2.set_ylabel('Loss', color='b')
+    
 
-    """ax3 = ax1.twinx()
-    ax3.spines['right'].set_position(('outward', 60))  # shift third axis
-    ax3.plot(step_size_list[skip:], 'r-', label='Series 3')
-    ax3.set_ylabel('Series 3', color='r')
+    ax3 = ax1.twinx()
+    ax3.spines['right'].set_position(('outward', 60))  #
+    ax3.plot(mad_list[skip:], 'r-', label='MAD')
+    ax3.set_ylabel('MAD', color='r')
+
+    # save
+    ax1.set_title('HMC Sampling: PSNR, Loss, MAD over Epochs')
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
 
     # Optional: Combine legends
     lines = ax1.get_lines() + ax2.get_lines() + ax3.get_lines()
     labels = [line.get_label() for line in lines]
-    ax1.legend(lines, labels, loc='upper left') """
+    ax1.legend(lines, labels, loc='upper left')
 
     plt.savefig(os.path.join(opt.image_folder, 'hmc_combined.png'), bbox_inches='tight')
 
@@ -712,6 +716,18 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         xt = dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
 
     return x_accept
+
+def compute_mad2(loss_list):
+    recent_losses = np.array(loss_list)
+    median = np.median(recent_losses)
+    mad = np.median(np.abs(recent_losses - median))
+    return mad
+
+def compute_mad(loss_list, window=20):
+    recent_losses = np.array(loss_list[-window:])
+    median = np.median(recent_losses)
+    mad = np.median(np.abs(recent_losses - median))
+    return mad
 
 def hmc_deferred(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     x = x.requires_grad_()
