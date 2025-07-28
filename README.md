@@ -54,7 +54,7 @@ mkdir -p exp/datasets/celeba_hq
 
 ### 4) Set environment
 
-We use the external codes for motion-blurring and non-linear deblurring.
+We use the external codes for motion-blurring, non-linear deblurring, and model_loader.
 
 ```
 git clone https://github.com/VinAIResearch/blur-kernel-space-exploring bkse
@@ -63,6 +63,11 @@ sed -i 's/\bmodels\./bkse.models./g' bkse/models/kernel_encoding/image_base_mode
 sed -i 's/\bmodels\./bkse.models./g' bkse/models/backbones/resnet.py
 
 git clone https://github.com/LeviBorodenko/motionblur motionblur
+
+git clone --depth 1 --filter=blob:none --sparse https://github.com/soominkwon/resample.git
+cd resample
+git sparse-checkout set ldm
+cd ..
 ```
 
 Install dependencies. Change root in sed command to your env location.
