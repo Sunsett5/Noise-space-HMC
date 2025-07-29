@@ -10,6 +10,7 @@ from util.early_stop import EarlyStop
 from guided_diffusion.unet import create_model
 import lpips
 from tqdm import tqdm
+import time
 
 from datasets import get_dataset, data_transform, inverse_data_transform
 from functions.ckpt_util import get_ckpt_path, download
@@ -629,13 +630,13 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     return xt.detach()
 
 def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
-    x = x.requires_grad_()
+    x = x.detach().requires_grad_()
     sigma_y = opt.sigma_y
     tau = opt.tau
     epsilon = opt.epsilon
     L = max(1,math.floor(tau/epsilon))
-    epochs = 50
-    sampling = 10
+    epochs = 60
+    sampling = 20
 
     orig_pic = []
     for j in range(len(x_orig)):
@@ -645,13 +646,24 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     final_img_list = []
     sigma_y_list = []
     tau_list = []
-    x_list = []
+    cosine_list = []
+    prev_delta_x = None
 
     accepted = 0
     rejected = 0
     total_rejected = 0
 
-    for epoch in range(epochs + 2 * sampling):
+    epoch = 0
+    while epoch < epochs + 2 * sampling:
+
+        
+        if epoch == epochs:
+            sigma_y = opt.sigma_0
+            if tau > 0.1:
+                tau = 0.1
+                epsilon = 0.01
+        #elif epoch == epochs + sampling:
+            
 
         # initialize momentum
         p = torch.randn_like(x, device=device) * math.sqrt(opt.m)
@@ -683,28 +695,161 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         delta_H = H_proposal - H
         acceptance_ratio = min(torch.tensor([1], device=device), torch.exp(-delta_H))
         accept = torch.rand(1).item() < acceptance_ratio.item()
-        sigma_y_list.append(sigma_y)
-        tau_list.append(tau)
         if accept:
+            epoch += 1
             accepted += 1
             rejected = 0
-            loss_list.append(loss.detach().item())
-            if epoch < epochs:
-                lamb = 0.93
-                sigma_y = opt.sigma_y * (opt.sigma_0 / opt.sigma_y) ** (epoch  / epochs)
-                #tau_schedule = opt.tau * (0.1/opt.tau) ** (epoch / epochs)
-                #epsilon_target = opt.epsilon * (0.1/opt.epsilon) ** (epoch / epochs)
-                #if tau < tau_schedule:
-                #    tau = math.sqrt(tau * tau_schedule)
-                #    epsilon = math.sqrt(epsilon_target * epsilon)
-                #else:
-                #    tau = tau_schedule
-                #    epsilon = epsilon_target
-
+            x_accept = xt.detach().clone()
+            if epoch <= epochs:
+                #sigma_y = opt.sigma_0 +  (mid_point - opt.sigma_0) * (2 - 2 * epoch / epochs) ** 2
+                sigma_y = 0.1 + 0.9 * ((4/3)*(1 - epoch / epochs)) ** 2
             else:
-                sigma_y = opt.sigma_0
-                tau = 0.1
-                epsilon = 0.01
+                final_img_list.append(x_accept[0])
+
+            #print('annealed sigma_y:', sigma_y,  'tau:', tau)
+            
+            x = x_proposal.detach().clone().requires_grad_(True)
+
+            """ x_save = [inverse_data_transform(config, y) for y in xt.detach()]
+            for j in range(len(x_save)):
+                #tvu.save_image(
+                #    x_save[j], os.path.join(opt.image_folder, f"hmc_{epoch}.png")
+                #)
+                mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
+                psnr = 10 * torch.log10(1 / mse)
+                psnr_list.append(psnr.item())
+                sigma_y_list.append(sigma_y)
+                print('epoch', epoch, 'PSNR:', psnr.item()) """
+        else:
+            rejected += 1
+            if rejected >= 2:
+                tau = tau * 0.95
+                #print('                    Rejected too many times, annealing tau:', tau)
+                epsilon = epsilon * 0.95
+            continue
+
+    skip = 0
+    # plot the PSNR, loss in the same graph
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    ax1.plot(psnr_list[skip:], 'g-', label='PSNR')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('PSNR', color='g')
+
+    ax2 = ax1.twinx()
+    ax2.plot(sigma_y_list[skip:], 'b-', label='sigma_y')
+    ax2.set_ylabel('sigma_y', color='b')
+
+    # save
+    ax1.set_title('HMC Sampling: PSNR, sigma_y over Epochs')
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+
+    # Optional: Combine legends
+    lines = ax1.get_lines() + ax2.get_lines()
+    labels = [line.get_label() for line in lines]
+    ax1.legend(lines, labels, loc='upper left')
+
+    plt.savefig(os.path.join(opt.image_folder, 'hmc_combined.png'), bbox_inches='tight')
+
+    final_img_list = final_img_list[-sampling:]  # take the last N images
+
+    return torch.stack(final_img_list) #x_accept
+
+def hmc_time_test(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+    x = x.detach().requires_grad_()
+    sigma_y = opt.sigma_y
+    tau = opt.tau
+    epsilon = opt.epsilon
+    L = max(1,math.floor(tau/epsilon))
+    epochs = 50
+    sampling = 20
+
+    orig_pic = []
+    for j in range(len(x_orig)):
+        orig_pic.append(inverse_data_transform(config, x_orig[j]))
+    psnr_list = []
+    loss_list = []
+    final_img_list = []
+    sigma_y_list = []
+    tau_list = []
+    cosine_list = []
+    prev_delta_x = None
+
+    accepted = 0
+    rejected = 0
+    total_rejected = 0
+
+    epoch = 0
+    while epoch < epochs + 2 * sampling:
+
+        
+        if epoch == epochs:
+            sigma_y = opt.sigma_0
+        """ elif (epoch == epochs + 2 * sampling) and (tau > 0.1):
+            tau = 0.1
+            epsilon = 0.005 """
+
+        # initialize momentum
+        start = time.time()
+        p = torch.randn_like(x, device=device) * math.sqrt(opt.m)
+        sample_momentum_time = time.time()
+        print("Sample Momentum Time:", sample_momentum_time - start)
+        xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+        denoising_time = time.time()
+        print("Initial Denoise Time:", denoising_time - sample_momentum_time)
+        loss = torch.sum((y_0 - H_funcs.H(xt))**2)
+        loss_grad = torch.autograd.grad(loss, x, retain_graph=False)[0]
+        autograd_time = time.time()
+        print("Initial Autograd Time:", autograd_time - denoising_time)
+
+        H = (1/2) * torch.sum(x**2, dim=(1, 2, 3)) + (1/(2 * sigma_y**2)) * loss.detach() + (1/2)* torch.sum(p * p, dim=(1, 2, 3)) * opt.m**(-1)
+
+        calc_H_time = time.time()
+        print("Initial H Calculation Time:", calc_H_time - autograd_time)
+
+        x_proposal = x.detach().clone().requires_grad_(True)
+
+        # update momentum
+        p = p - (epsilon / 2) * (x_proposal.detach() + 1/(2 * sigma_y**2) * loss_grad)
+
+        for l in range(L):
+            start_leap = time.time()
+
+            x_proposal = x_proposal + epsilon * opt.m**(-1) * p 
+            x_proposal = x_proposal.detach().requires_grad_(True)
+
+            update_x_time = time.time()
+            print("Update x Time:", update_x_time - start_leap)
+            xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+            inner_denoising_time = time.time()
+            print("Inner Denoise Time:", inner_denoising_time - update_x_time)
+            loss = torch.sum((y_0 - H_funcs.H(xt))**2)
+            loss_grad = torch.autograd.grad(loss, x_proposal, retain_graph=False)[0]
+            autograd_time = time.time()
+            print("Inner Autograd Time:", autograd_time - inner_denoising_time)
+
+            p = p - epsilon * (x_proposal.detach() + 1/(2 * sigma_y**2) * loss_grad)
+
+        p = p + (epsilon / 2) * (x_proposal.detach() + 1/(2 * sigma_y**2) * loss_grad)
+
+        H_proposal = (1/2) * torch.sum(x_proposal**2, dim=(1, 2, 3)) + (1/(2 * sigma_y**2)) * loss.detach() + (1/2)* torch.sum(p * p, dim=(1, 2, 3)) * opt.m**(-1)
+        final_H_time = time.time()
+        print("Final H Calculation Time:", final_H_time - autograd_time)
+        delta_H = H_proposal - H
+        acceptance_ratio = min(torch.tensor([1], device=device), torch.exp(-delta_H))
+        accept = torch.rand(1).item() < acceptance_ratio.item()
+        accept_time = time.time()
+        print("Determine Acceptance Time:", accept_time - final_H_time)
+        tau_list.append(tau)
+        if accept:
+            epoch += 1
+            accepted += 1
+            rejected = 0
+            #mid_point = 4 * opt.sigma_0
+            if epoch < epochs:
+                #sigma_y = opt.sigma_0 +  (mid_point - opt.sigma_0) * (2 - 2 * epoch / epochs) ** 2
+                sigma_y = 0.1 + 0.9 * ((4/3)*(1 - epoch / epochs)) ** 2
+            else:
                 final_img_list.append(x_accept[0])
 
             #print('annealed sigma_y:', sigma_y,  'tau:', tau)
@@ -720,32 +865,30 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                 mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
                 psnr = 10 * torch.log10(1 / mse)
                 psnr_list.append(psnr.item())
-                print('epoch', epoch, 'PSNR:', psnr.item()) """
+                sigma_y_list.append(sigma_y)
+                #print('epoch', epoch, 'PSNR:', psnr.item()) """
         else:
             rejected += 1
             if rejected >= 2:
-                tau = tau * 0.9
+                tau = tau * 0.95
                 total_rejected += 1
                 #print('                    Rejected too many times, annealing tau:', tau)
-                epsilon = epsilon * 0.9
-                rejected = 0
+                epsilon = epsilon * 0.95
             continue
 
-    """ skip = 0
+    skip = 0
     # plot the PSNR, loss in the same graph
     fig, ax1 = plt.subplots(figsize=(10, 5))
-    #ax1.plot(psnr_list[skip:], 'g-', label='PSNR')
-    ax1.plot(sigma_y_list[skip:], 'g-', label='sigma_y')
+    ax1.plot(psnr_list[skip:], 'g-', label='PSNR')
     ax1.set_xlabel('Epoch')
-    #ax1.set_ylabel('PSNR', color='g')
-    ax1.set_ylabel('sigma_y', color='g')
+    ax1.set_ylabel('PSNR', color='g')
 
     ax2 = ax1.twinx()
-    ax2.plot(tau_list[skip:], 'b-', label='tau')
-    ax2.set_ylabel('tau', color='b')
-    
+    ax2.plot(sigma_y_list[skip:], 'b-', label='sigma_y')
+    ax2.set_ylabel('sigma_y', color='b')
+
     # save
-    ax1.set_title('HMC Sampling: sigma_y, tau over Epochs')
+    ax1.set_title('HMC Sampling: PSNR, sigma_y over Epochs')
     ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
 
 
@@ -754,7 +897,7 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     labels = [line.get_label() for line in lines]
     ax1.legend(lines, labels, loc='upper left')
 
-    plt.savefig(os.path.join(opt.image_folder, 'hmc_combined.png'), bbox_inches='tight') """
+    plt.savefig(os.path.join(opt.image_folder, 'hmc_combined.png'), bbox_inches='tight')
 
     final_img_list = final_img_list[-10:]  # take the last 10 images
 
@@ -780,6 +923,12 @@ def iterative_sampling(xt, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=Fal
         xt = xt_next
 
     return xt
+
+def cosine_similarity(x, y, eps=1e-8):
+    dot = torch.sum(x * y)
+    norm_x = torch.norm(x)
+    norm_y = torch.norm(y)
+    return dot / (norm_x * norm_y + eps)
 
 def get_parser():
     parser = argparse.ArgumentParser()
