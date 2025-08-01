@@ -267,18 +267,6 @@ class DDIMSampler(object):
                 # Performing only every 10 steps (or so)
                 # TODO: also make this not hard-coded
                 if index % 5 == 0 :  
-                    """ for k in range(i, min(i+inter_timesteps, len(list( reversed(timesteps) ))-1)):
-                        step_ = list( reversed(timesteps))[k+1]
-                        ts_ = torch.full((b,), step_, device=device, dtype=torch.long)
-                        index_ = total_steps - k - 1
-
-                        # Obtain x_{t-k}
-                        img, pred_x0, _ = self.p_sample_ddim(img, cond, ts_, index=index_, use_original_steps=ddim_use_original_steps,
-                                            quantize_denoised=quantize_denoised, temperature=temperature,
-                                            noise_dropout=noise_dropout, score_corrector=score_corrector,
-                                            corrector_kwargs=corrector_kwargs,
-                                            unconditional_guidance_scale=unconditional_guidance_scale,
-                                            unconditional_conditioning=unconditional_conditioning) """
                         
                     # Some arbitrary scheduling for sigma
                     if index >= 0:
@@ -331,7 +319,7 @@ class DDIMSampler(object):
         return img, intermediates
 
 
-    def pixel_optimization(self, measurement, x_prime, operator_fn, eps=1e-3, max_iters=100):
+    def pixel_optimization(self, measurement, x_prime, operator_fn, eps=1e-3, max_iters=50):
         """
         Function to compute argmin_x ||y - A(x)||_2^2
 
@@ -367,7 +355,7 @@ class DDIMSampler(object):
         return opt_var
 
 
-    def latent_optimization(self, measurement, z_init, operator_fn, eps=1e-3, max_iters=50, lr=None):
+    def latent_optimization(self, measurement, z_init, operator_fn, eps=1e-3, max_iters=25, lr=None):
 
         """
         Function to compute argmin_z ||y - A( D(z) )||_2^2
