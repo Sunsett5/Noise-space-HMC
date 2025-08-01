@@ -1,0 +1,89 @@
+nohup: 忽略输入
+Dataset has size 100
+Start from 0
+sigma_y = opt.sigma_0 + 0.9 * (1 - epoch / epochs) ** 2
+  0%|          | 0/100 [00:00<?, ?it/s]Setting up [LPIPS] perceptual loss: trunk [vgg], v[0.1], spatial [off]
+Loading model from: /root/.local/lib/python3.8/site-packages/lpips/weights/v0.1/vgg.pth
+epoch 1 PSNR: 16.499385833740234 sigma_y: 1.0 tau: 1.0
+epoch 2 PSNR: 18.24915313720703 sigma_y: 0.941 tau: 1.0
+epoch 3 PSNR: 20.911697387695312 sigma_y: 0.884 tau: 0.95
+epoch 4 PSNR: 21.3201904296875 sigma_y: 0.8290000000000001 tau: 0.6983372960937497
+epoch 5 PSNR: 22.54023551940918 sigma_y: 0.776 tau: 0.6983372960937497
+epoch 6 PSNR: 22.464807510375977 sigma_y: 0.7250000000000001 tau: 0.6983372960937497
+epoch 7 PSNR: 22.977962493896484 sigma_y: 0.6760000000000002 tau: 0.6983372960937497
+epoch 8 PSNR: 25.76419448852539 sigma_y: 0.629 tau: 0.6983372960937497
+epoch 9 PSNR: 26.258485794067383 sigma_y: 0.5840000000000002 tau: 0.6983372960937497
+epoch 10 PSNR: 26.775447845458984 sigma_y: 0.5409999999999999 tau: 0.6983372960937497
+epoch 11 PSNR: 26.890756607055664 sigma_y: 0.5000000000000001 tau: 0.6983372960937497
+epoch 12 PSNR: 27.372940063476562 sigma_y: 0.46099999999999997 tau: 0.5133420832795047
+epoch 13 PSNR: 27.14198112487793 sigma_y: 0.42400000000000004 tau: 0.41812033521917696
+epoch 14 PSNR: 27.613069534301758 sigma_y: 0.389 tau: 0.3972143184582181
+epoch 15 PSNR: 27.541183471679688 sigma_y: 0.356 tau: 0.30735686772502346
+epoch 16 PSNR: 27.71795082092285 sigma_y: 0.325 tau: 0.2919890243387723
+epoch 17 PSNR: 27.52547264099121 sigma_y: 0.29600000000000004 tau: 0.2919890243387723
+epoch 18 PSNR: 27.815662384033203 sigma_y: 0.269 tau: 0.2259355409925655
+epoch 19 PSNR: 27.77859115600586 sigma_y: 0.24400000000000005 tau: 0.2259355409925655
+epoch 20 PSNR: 27.980440139770508 sigma_y: 0.22100000000000003 tau: 0.2259355409925655
+epoch 21 PSNR: 28.133262634277344 sigma_y: 0.2 tau: 0.18402591023557577
+epoch 22 PSNR: 28.191802978515625 sigma_y: 0.18100000000000005 tau: 0.18402591023557577
+epoch 23 PSNR: 28.2589054107666 sigma_y: 0.16400000000000003 tau: 0.17482461472379698
+epoch 24 PSNR: 28.33022117614746 sigma_y: 0.149 tau: 0.14989025404881542
+epoch 25 PSNR: 28.469961166381836 sigma_y: 0.13599999999999998 tau: 0.12208654873684793
+epoch 26 PSNR: 28.5838680267334 sigma_y: 0.125 tau: 0.12208654873684793
+epoch 27 PSNR: 28.689498901367188 sigma_y: 0.11599999999999999 tau: 0.11018311023500525
+epoch 28 PSNR: 28.73114013671875 sigma_y: 0.109 tau: 0.0852575903343082
+epoch 29 PSNR: 28.8361759185791 sigma_y: 0.10400000000000001 tau: 0.0852575903343082
+epoch 30 PSNR: 28.818862915039062 sigma_y: 0.101 tau: 0.0852575903343082
+epoch 31 PSNR: 28.885791778564453 sigma_y: 0.1 tau: 0.0852575903343082
+epoch 32 PSNR: 28.78980255126953 sigma_y: 0.1 tau: 0.0852575903343082
+epoch 33 PSNR: 28.900671005249023 sigma_y: 0.1 tau: 0.0852575903343082
+
+  0%|          | 0/100 [05:52<?, ?it/s]
+Traceback (most recent call last):
+  File "main_sampling.py", line 1037, in <module>
+    sample_image(opt=opt, config=config, model_config=model_config, device=device)
+  File "main_sampling.py", line 483, in sample_image
+    xt = hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+  File "main_sampling.py", line 833, in hmc
+    xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+  File "main_sampling.py", line 906, in iterative_sampling
+    x0_t, add_up = algo.cal_x0(xt, t, at, at_next, y_0, opt.noise)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/root/Noise-space-HMC/algos/unconditional.py", line 12, in cal_x0
+    et = self.model(xt, t)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 732, in forward
+    h = module(h, emb)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 146, in forward
+    x = layer(x, emb)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 303, in forward
+    return checkpoint(
+  File "/root/Noise-space-HMC/guided_diffusion/nn.py", line 139, in checkpoint
+    return func(*inputs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 322, in _forward
+    h = out_norm(h) * (1 + scale) + shift
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/nn.py", line 19, in forward
+    return super().forward(x.float()).type(x.dtype)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/normalization.py", line 288, in forward
+    return F.group_norm(
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/functional.py", line 2606, in group_norm
+    return torch.group_norm(input, num_groups, weight, bias, eps, torch.backends.cudnn.enabled)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/data/_utils/signal_handling.py", line 67, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 315420) is killed by signal: Terminated. 

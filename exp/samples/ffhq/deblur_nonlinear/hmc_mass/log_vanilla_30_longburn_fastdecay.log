@@ -1,0 +1,169 @@
+nohup: 忽略输入
+Dataset has size 100
+Start from 0
+if epoch < burn:
+            sigma_y = opt.sigma_0 + 0.9
+        elif epoch < epochs:
+            sigma_y = opt.sigma_0 + 0.9 * (1 - (epoch-burn) / epochs) ** 5
+        elif epoch == epochs:
+            sigma_y = opt.sigma_0
+            if tau > 0.1:
+                tau = 0.1
+                epsilon = 0.01  
+  0%|          | 0/100 [00:00<?, ?it/s]Setting up [LPIPS] perceptual loss: trunk [vgg], v[0.1], spatial [off]
+Loading model from: /root/.local/lib/python3.8/site-packages/lpips/weights/v0.1/vgg.pth
+epoch 1 PSNR: 16.446483612060547 sigma_y: 1.0 tau: 1.0
+epoch 2 PSNR: 18.2764835357666 sigma_y: 1.0 tau: 1.0
+epoch 3 PSNR: 20.876487731933594 sigma_y: 1.0 tau: 1.0
+epoch 4 PSNR: 22.276708602905273 sigma_y: 1.0 tau: 0.9025
+epoch 5 PSNR: 24.107330322265625 sigma_y: 1.0 tau: 0.9025
+epoch 6 PSNR: 25.475494384765625 sigma_y: 1.0 tau: 0.9025
+epoch 7 PSNR: 25.5150146484375 sigma_y: 1.0 tau: 0.9025
+epoch 8 PSNR: 25.87602996826172 sigma_y: 1.0 tau: 0.9025
+epoch 9 PSNR: 25.882667541503906 sigma_y: 1.0 tau: 0.9025
+epoch 10 PSNR: 26.183774948120117 sigma_y: 1.0 tau: 0.9025
+epoch 11 PSNR: 26.245176315307617 sigma_y: 1.0 tau: 0.9025
+epoch 12 PSNR: 26.23748016357422 sigma_y: 0.8596721851851852 tau: 0.9025
+epoch 13 PSNR: 26.687042236328125 sigma_y: 0.7374210370370371 tau: 0.8573749999999999
+epoch 14 PSNR: 27.07452964782715 sigma_y: 0.631441 tau: 0.7350918906249998
+epoch 15 PSNR: 27.355342864990234 sigma_y: 0.5400509629629631 tau: 0.5987369392383786
+epoch 16 PSNR: 27.80280113220215 sigma_y: 0.46168981481481497 tau: 0.5403600876626365
+epoch 17 PSNR: 27.79517364501953 sigma_y: 0.39491200000000004 tau: 0.48767497911552943
+epoch 18 PSNR: 28.105758666992188 sigma_y: 0.338383074074074 tau: 0.37735360253530714
+epoch 19 PSNR: 28.08150863647461 sigma_y: 0.2908752592592594 tau: 0.3235335449737089
+epoch 20 PSNR: 28.340681076049805 sigma_y: 0.25126299999999996 tau: 0.27738957312183365
+epoch 21 PSNR: 28.344974517822266 sigma_y: 0.21851851851851858 tau: 0.263520094465742
+epoch 22 PSNR: 28.610107421875 sigma_y: 0.19170737037037033 tau: 0.2378268852553321
+epoch 23 PSNR: 28.587434768676758 sigma_y: 0.169984 tau: 0.20390682574579033
+epoch 24 PSNR: 28.827484130859375 sigma_y: 0.1525872962962963 tau: 0.18402591023557577
+epoch 25 PSNR: 28.951583862304688 sigma_y: 0.13883614814814815 tau: 0.15777921478822676
+epoch 26 PSNR: 29.11676025390625 sigma_y: 0.12812500000000002 tau: 0.15777921478822676
+epoch 27 PSNR: 29.270055770874023 sigma_y: 0.11991940740740742 tau: 0.14239574134637464
+epoch 28 PSNR: 29.339311599731445 sigma_y: 0.1137515925925926 tau: 0.14239574134637464
+epoch 29 PSNR: 29.40258026123047 sigma_y: 0.10921600000000001 tau: 0.12208654873684793
+epoch 30 PSNR: 29.397945404052734 sigma_y: 0.10596485185185187 tau: 0.12208654873684793
+epoch 31 PSNR: 29.422109603881836 sigma_y: 0.1 tau: 0.05987369392383786
+epoch 32 PSNR: 29.469036102294922 sigma_y: 0.1 tau: 0.05987369392383786
+epoch 33 PSNR: 29.483871459960938 sigma_y: 0.1 tau: 0.05987369392383786
+epoch 34 PSNR: 29.56940460205078 sigma_y: 0.1 tau: 0.05688000922764597
+epoch 35 PSNR: 29.641231536865234 sigma_y: 0.1 tau: 0.05688000922764597
+epoch 36 PSNR: 29.575281143188477 sigma_y: 0.1 tau: 0.05133420832795048
+epoch 37 PSNR: 29.56644058227539 sigma_y: 0.1 tau: 0.05133420832795048
+epoch 38 PSNR: 29.662776947021484 sigma_y: 0.1 tau: 0.05133420832795048
+epoch 39 PSNR: 29.63516616821289 sigma_y: 0.1 tau: 0.05133420832795048
+epoch 40 PSNR: 29.65144920349121 sigma_y: 0.1 tau: 0.05133420832795048
+epoch 41 PSNR: 29.654159545898438 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 42 PSNR: 29.732463836669922 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 43 PSNR: 29.739566802978516 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 44 PSNR: 29.752893447875977 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 45 PSNR: 29.767724990844727 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 46 PSNR: 29.81336212158203 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 47 PSNR: 29.79330825805664 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 48 PSNR: 29.791767120361328 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 49 PSNR: 29.89202308654785 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 50 PSNR: 29.84229278564453 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 51 PSNR: 29.852081298828125 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 52 PSNR: 29.895334243774414 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 53 PSNR: 29.87029266357422 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 54 PSNR: 29.93564224243164 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 55 PSNR: 29.9102783203125 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 56 PSNR: 29.977121353149414 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 57 PSNR: 29.98394775390625 sigma_y: 0.1 tau: 0.046329123015975304
+epoch 58 PSNR: 29.963756561279297 sigma_y: 0.1 tau: 0.04401266686517654
+epoch 59 PSNR: 29.946659088134766 sigma_y: 0.1 tau: 0.04401266686517654
+epoch 60 PSNR: 29.98635482788086 sigma_y: 0.1 tau: 0.039721431845821824
+epoch 61 PSNR: 30.00229263305664 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 62 PSNR: 30.065990447998047 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 63 PSNR: 30.022384643554688 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 64 PSNR: 30.05743980407715 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 65 PSNR: 30.07516860961914 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 66 PSNR: 30.05115509033203 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 67 PSNR: 30.062049865722656 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 68 PSNR: 30.10544204711914 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 69 PSNR: 30.114042282104492 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 70 PSNR: 30.13485336303711 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 71 PSNR: 30.144350051879883 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 72 PSNR: 30.093181610107422 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 73 PSNR: 30.128986358642578 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 74 PSNR: 30.109262466430664 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 75 PSNR: 30.073843002319336 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 76 PSNR: 30.069658279418945 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 77 PSNR: 30.14886474609375 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 78 PSNR: 30.17223358154297 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 79 PSNR: 30.17217445373535 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 80 PSNR: 30.252235412597656 sigma_y: 0.1 tau: 0.037735360253530734
+main_sampling.py:521: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  LPIPS = loss_fn_vgg(2*orig-1.0, 2*torch.tensor(x[j]).to(torch.float32).cuda()-1.0)[0,0,0,0]
+
+PSNR:29.9789 (0.1482), SSIM:0.80187 (0.00260), LPIPS:0.22253 (0.00228):   0%|          | 0/100 [10:21<?, ?it/s]
+PSNR:29.9789 (0.1482), SSIM:0.80187 (0.00260), LPIPS:0.22253 (0.00228):   1%|          | 1/100 [10:21<17:06:17, 622.00s/it]epoch 1 PSNR: 15.658069610595703 sigma_y: 1.0 tau: 1.0
+epoch 2 PSNR: 17.079179763793945 sigma_y: 1.0 tau: 1.0
+epoch 3 PSNR: 19.447513580322266 sigma_y: 1.0 tau: 1.0
+epoch 4 PSNR: 21.117027282714844 sigma_y: 1.0 tau: 1.0
+epoch 5 PSNR: 22.636924743652344 sigma_y: 1.0 tau: 1.0
+epoch 6 PSNR: 23.272859573364258 sigma_y: 1.0 tau: 1.0
+epoch 7 PSNR: 24.2923526763916 sigma_y: 1.0 tau: 1.0
+epoch 8 PSNR: 24.49506950378418 sigma_y: 1.0 tau: 1.0
+epoch 9 PSNR: 24.659929275512695 sigma_y: 1.0 tau: 1.0
+epoch 10 PSNR: 24.62775230407715 sigma_y: 1.0 tau: 1.0
+epoch 11 PSNR: 24.668180465698242 sigma_y: 1.0 tau: 1.0
+epoch 12 PSNR: 24.69669532775879 sigma_y: 0.8596721851851852 tau: 1.0
+epoch 13 PSNR: 25.107868194580078 sigma_y: 0.7374210370370371 tau: 1.0
+epoch 14 PSNR: 25.354354858398438 sigma_y: 0.631441 tau: 1.0
+epoch 15 PSNR: 25.693809509277344 sigma_y: 0.5400509629629631 tau: 0.8573749999999999
+epoch 16 PSNR: 26.0000057220459 sigma_y: 0.46168981481481497 tau: 0.7350918906249998
+epoch 17 PSNR: 26.057451248168945 sigma_y: 0.39491200000000004 tau: 0.6302494097246091
+
+PSNR:29.9789 (0.1482), SSIM:0.80187 (0.00260), LPIPS:0.22253 (0.00228):   1%|          | 1/100 [12:10<20:05:49, 730.81s/it]
+Traceback (most recent call last):
+  File "main_sampling.py", line 1040, in <module>
+    sample_image(opt=opt, config=config, model_config=model_config, device=device)
+  File "main_sampling.py", line 483, in sample_image
+    xt = hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+  File "main_sampling.py", line 836, in hmc
+    xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+  File "main_sampling.py", line 909, in iterative_sampling
+    x0_t, add_up = algo.cal_x0(xt, t, at, at_next, y_0, opt.noise)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/root/Noise-space-HMC/algos/unconditional.py", line 12, in cal_x0
+    et = self.model(xt, t)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 732, in forward
+    h = module(h, emb)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 146, in forward
+    x = layer(x, emb)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 303, in forward
+    return checkpoint(
+  File "/root/Noise-space-HMC/guided_diffusion/nn.py", line 139, in checkpoint
+    return func(*inputs)
+  File "/root/Noise-space-HMC/guided_diffusion/unet_ffhq.py", line 323, in _forward
+    h = out_rest(h)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/conv.py", line 458, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/data/_utils/signal_handling.py", line 67, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 812904) is killed by signal: Terminated. 

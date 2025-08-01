@@ -1,0 +1,91 @@
+nohup: 忽略输入
+Dataset has size 100
+Start from 0
+sigma_y = opt.sigma_0 + 0.9 * (1 - epoch / epochs) ** 3
+
+  0%|          | 0/100 [00:00<?, ?it/s]Setting up [LPIPS] perceptual loss: trunk [vgg], v[0.1], spatial [off]
+Loading model from: /root/.local/lib/python3.8/site-packages/lpips/weights/v0.1/vgg.pth
+epoch 1 PSNR: 16.478017807006836 sigma_y: 1.0 tau: 1.0
+epoch 2 PSNR: 18.134973526000977 sigma_y: 0.8716374999999998 tau: 1.0
+epoch 3 PSNR: 21.340755462646484 sigma_y: 0.7561000000000001 tau: 1.0
+epoch 4 PSNR: 21.974363327026367 sigma_y: 0.6527124999999999 tau: 0.5987369392383786
+epoch 5 PSNR: 22.820606231689453 sigma_y: 0.5608000000000001 tau: 0.5987369392383786
+epoch 6 PSNR: 23.41895294189453 sigma_y: 0.47968750000000004 tau: 0.5403600876626365
+epoch 7 PSNR: 23.373138427734375 sigma_y: 0.40869999999999995 tau: 0.48767497911552943
+epoch 8 PSNR: 24.074085235595703 sigma_y: 0.34716250000000004 tau: 0.3972143184582181
+epoch 9 PSNR: 24.717632293701172 sigma_y: 0.2944 tau: 0.30735686772502346
+epoch 10 PSNR: 25.089799880981445 sigma_y: 0.24973750000000006 tau: 0.25034408974245487
+epoch 11 PSNR: 26.38890838623047 sigma_y: 0.21250000000000002 tau: 0.2259355409925655
+epoch 12 PSNR: 26.726322174072266 sigma_y: 0.18201249999999997 tau: 0.2146387639429372
+epoch 13 PSNR: 27.04520034790039 sigma_y: 0.15760000000000002 tau: 0.1937114844585008
+epoch 14 PSNR: 27.385208129882812 sigma_y: 0.1385875 tau: 0.17482461472379698
+epoch 15 PSNR: 27.612268447875977 sigma_y: 0.12430000000000002 tau: 0.14989025404881542
+epoch 16 PSNR: 27.81816291809082 sigma_y: 0.11406250000000001 tau: 0.1352759542790559
+epoch 17 PSNR: 27.845317840576172 sigma_y: 0.1072 tau: 0.11598222130000553
+epoch 18 PSNR: 28.07216453552246 sigma_y: 0.1030375 tau: 0.11598222130000553
+epoch 19 PSNR: 28.063575744628906 sigma_y: 0.1009 tau: 0.11598222130000553
+epoch 20 PSNR: 28.21903419494629 sigma_y: 0.10011250000000001 tau: 0.10467395472325498
+epoch 21 PSNR: 28.262752532958984 sigma_y: 0.1 tau: 0.04401266686517654
+epoch 22 PSNR: 28.254669189453125 sigma_y: 0.1 tau: 0.04401266686517654
+epoch 23 PSNR: 28.309614181518555 sigma_y: 0.1 tau: 0.04401266686517654
+epoch 24 PSNR: 28.3656005859375 sigma_y: 0.1 tau: 0.04401266686517654
+epoch 25 PSNR: 28.419095993041992 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 26 PSNR: 28.393959045410156 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 27 PSNR: 28.504512786865234 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 28 PSNR: 28.482982635498047 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 29 PSNR: 28.493080139160156 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 30 PSNR: 28.554100036621094 sigma_y: 0.1 tau: 0.037735360253530734
+epoch 31 PSNR: 28.49431610107422 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 32 PSNR: 28.491363525390625 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 33 PSNR: 28.49823760986328 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 34 PSNR: 28.54336929321289 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 35 PSNR: 28.537044525146484 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 36 PSNR: 28.573585510253906 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 37 PSNR: 28.565950393676758 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 38 PSNR: 28.600311279296875 sigma_y: 0.1 tau: 0.035848592240854196
+epoch 39 PSNR: 28.606775283813477 sigma_y: 0.1 tau: 0.03405616262881148
+epoch 40 PSNR: 28.67681884765625 sigma_y: 0.1 tau: 0.03405616262881148
+epoch 41 PSNR: 28.65093994140625 sigma_y: 0.1 tau: 0.03405616262881148
+epoch 42 PSNR: 28.624073028564453 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 43 PSNR: 28.613262176513672 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 44 PSNR: 28.67791175842285 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 45 PSNR: 28.687091827392578 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 46 PSNR: 28.69426918029785 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 47 PSNR: 28.68711280822754 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 48 PSNR: 28.676441192626953 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 49 PSNR: 28.747827529907227 sigma_y: 0.1 tau: 0.03235335449737091
+epoch 50 PSNR: 28.693546295166016 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 51 PSNR: 28.669231414794922 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 52 PSNR: 28.69961929321289 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 53 PSNR: 28.730377197265625 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 54 PSNR: 28.740127563476562 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 55 PSNR: 28.72450065612793 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 56 PSNR: 28.71697425842285 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 57 PSNR: 28.73710823059082 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 58 PSNR: 28.730850219726562 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 59 PSNR: 28.773052215576172 sigma_y: 0.1 tau: 0.030735686772502362
+epoch 60 PSNR: 28.817319869995117 sigma_y: 0.1 tau: 0.030735686772502362
+main_sampling.py:521: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  LPIPS = loss_fn_vgg(2*orig-1.0, 2*torch.tensor(x[j]).to(torch.float32).cuda()-1.0)[0,0,0,0]
+
+PSNR:28.6560 (0.0867), SSIM:0.78145 (0.00214), LPIPS:0.25191 (0.00233):   0%|          | 0/100 [08:47<?, ?it/s]
+PSNR:28.6560 (0.0867), SSIM:0.78145 (0.00214), LPIPS:0.25191 (0.00233):   1%|          | 1/100 [08:47<14:29:39, 527.06s/it]epoch 1 PSNR: 16.472610473632812 sigma_y: 1.0 tau: 1.0
+epoch 2 PSNR: 17.545412063598633 sigma_y: 0.8716374999999998 tau: 1.0
+epoch 3 PSNR: 19.45009994506836 sigma_y: 0.7561000000000001 tau: 1.0
+epoch 4 PSNR: 20.782485961914062 sigma_y: 0.6527124999999999 tau: 0.9025
+
+PSNR:28.6560 (0.0867), SSIM:0.78145 (0.00214), LPIPS:0.25191 (0.00233):   1%|          | 1/100 [09:20<15:25:37, 560.99s/it]
+Traceback (most recent call last):
+  File "main_sampling.py", line 1037, in <module>
+    sample_image(opt=opt, config=config, model_config=model_config, device=device)
+  File "main_sampling.py", line 483, in sample_image
+    xt = hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+  File "main_sampling.py", line 835, in hmc
+    loss_grad = torch.autograd.grad(loss, x_proposal, retain_graph=False)[0]
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/autograd/__init__.py", line 436, in grad
+    result = _engine_run_backward(
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/autograd/graph.py", line 769, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/data/_utils/signal_handling.py", line 67, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 265509) is killed by signal: Terminated. 

@@ -1,0 +1,21 @@
+nohup: 忽略输入
+Dataset has size 100
+Start from 0
+  0%|          | 0/100 [00:00<?, ?it/s]Setting up [LPIPS] perceptual loss: trunk [vgg], v[0.1], spatial [off]
+Loading model from: /root/.local/lib/python3.8/site-packages/lpips/weights/v0.1/vgg.pth
+epoch 1 PSNR: 15.680323600769043 sigma_y: 1.7000000000000002 tau: 1.0
+  0%|          | 0/100 [00:12<?, ?it/s]
+Traceback (most recent call last):
+  File "main_sampling.py", line 1039, in <module>
+    sample_image(opt=opt, config=config, model_config=model_config, device=device)
+  File "main_sampling.py", line 483, in sample_image
+    xt = hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+  File "main_sampling.py", line 833, in hmc
+    xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+  File "main_sampling.py", line 903, in iterative_sampling
+    at = compute_alpha(b, t.long())
+  File "main_sampling.py", line 71, in compute_alpha
+    beta = torch.cat([torch.zeros(1).to(beta.device), beta], dim=0)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/data/_utils/signal_handling.py", line 67, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 157765) is killed by signal: Terminated. 

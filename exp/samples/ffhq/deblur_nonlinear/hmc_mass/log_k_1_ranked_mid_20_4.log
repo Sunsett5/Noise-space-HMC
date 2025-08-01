@@ -1,0 +1,41 @@
+nohup: 忽略输入
+Dataset has size 100
+Start from 0
+sigma_y = opt.sigma_0 + 0.4 * (1 - epoch / epochs) ** 3
+  0%|          | 0/100 [00:00<?, ?it/s]Setting up [LPIPS] perceptual loss: trunk [vgg], v[0.1], spatial [off]
+Loading model from: /root/.local/lib/python3.8/site-packages/lpips/weights/v0.1/vgg.pth
+epoch 1 PSNR: 15.714305877685547 sigma_y: 0.5 tau: 1.0
+epoch 2 PSNR: 16.04208755493164 sigma_y: 0.44294999999999995 tau: 1.0
+epoch 3 PSNR: 16.15589141845703 sigma_y: 0.39160000000000006 tau: 0.9025
+epoch 4 PSNR: 17.523696899414062 sigma_y: 0.34565 tau: 0.6634204312890623
+epoch 5 PSNR: 17.805444717407227 sigma_y: 0.30480000000000007 tau: 0.46329123015975293
+epoch 6 PSNR: 18.123186111450195 sigma_y: 0.26875000000000004 tau: 0.44012666865176525
+epoch 7 PSNR: 18.215757369995117 sigma_y: 0.23719999999999997 tau: 0.44012666865176525
+epoch 8 PSNR: 18.24947166442871 sigma_y: 0.20985 tau: 0.3235335449737089
+epoch 9 PSNR: 18.296005249023438 sigma_y: 0.1864 tau: 0.2378268852553321
+epoch 10 PSNR: 18.368324279785156 sigma_y: 0.16655000000000003 tau: 0.20390682574579033
+epoch 11 PSNR: 18.48430633544922 sigma_y: 0.15000000000000002 tau: 0.20390682574579033
+epoch 12 PSNR: 18.51844596862793 sigma_y: 0.13645 tau: 0.18402591023557577
+epoch 13 PSNR: 18.638225555419922 sigma_y: 0.12560000000000002 tau: 0.16608338398760714
+epoch 14 PSNR: 18.6491756439209 sigma_y: 0.11715 tau: 0.15777921478822676
+epoch 15 PSNR: 18.750364303588867 sigma_y: 0.11080000000000001 tau: 0.15777921478822676
+epoch 16 PSNR: 18.721738815307617 sigma_y: 0.10625000000000001 tau: 0.14239574134637464
+epoch 17 PSNR: 18.809139251708984 sigma_y: 0.1032 tau: 0.14239574134637464
+epoch 18 PSNR: 18.80657958984375 sigma_y: 0.10135000000000001 tau: 0.1352759542790559
+epoch 19 PSNR: 18.916051864624023 sigma_y: 0.1004 tau: 0.1352759542790559
+epoch 20 PSNR: 18.917936325073242 sigma_y: 0.10005 tau: 0.1285121565651031
+epoch 21 PSNR: 18.993295669555664 sigma_y: 0.1 tau: 0.05987369392383786
+
+  0%|          | 0/100 [05:20<?, ?it/s]
+Traceback (most recent call last):
+  File "main_sampling.py", line 1037, in <module>
+    sample_image(opt=opt, config=config, model_config=model_config, device=device)
+  File "main_sampling.py", line 483, in sample_image
+    xt = hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+  File "main_sampling.py", line 833, in hmc
+    xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+  File "main_sampling.py", line 899, in iterative_sampling
+    t = (torch.ones(n) * i).to(xt.device)
+  File "/root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torch/utils/data/_utils/signal_handling.py", line 67, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 272586) is killed by signal: Terminated. 
