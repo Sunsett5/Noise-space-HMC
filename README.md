@@ -41,7 +41,6 @@ mkdir -p exp/samples/ffhq
 mkdir -p exp/samples/celeba_hq
 
 ```
-{DOWNLOAD_DIR} is the directory that you downloaded checkpoint to.
 
 ### 3) Download test datasets
 
@@ -65,14 +64,44 @@ sed -i 's/\bmodels\./bkse.models./g' bkse/models/backbones/resnet.py
 git clone https://github.com/LeviBorodenko/motionblur motionblur
 ```
 
-Install dependencies. Change root in sed command to your env location.
+Install dependencies. Change {DOWNLOAD_DIR} in sed command to your root location.
 
 ```
 conda env create -f environment.yml
 conda activate NHMC
-sed -i 's/torch\._six\.string_classes/str/g' /root/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
-sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /root/.local/lib/python3.8/site-packages/lpips/lpips.py
+sed -i 's/torch\._six\.string_classes/str/g' /{DOWNLOAD_DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
+sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /{DOWNLOAD_DIR}/.local/lib/python3.8/site-packages/lpips/lpips.py
 ```
+
+## 5) Run experiment
+Pixel Space
+```
+python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo hmc --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc --tau 1.0 --epsilon 0.05
+```
+- algo : ddnm, diffpir, dmps, pigdm, reddiff, dps, daps, dmplug, hmc
+- timesteps : depends on algorithm. 3 for hmc, 3 for dmplug, 1000 for dps, 100 for diffpir
+- deg : forward operator. 
+    - sr4
+    - sr16
+    - hdr
+    - random_inpaint
+    - deblur_aniso
+    - deblur_nonlinear
+    - phase_retrieval
+- sigma_0 : std dev of measurement noise (sigma_y)
+- i : image output folder
+For HMC only
+- tau : length of 1 HMC update (default 1.0)
+- epsilom : length of 1 leapfrog update (default 0.05)
+
+Latent Space
+```
+python3 main_sampling_latent.py --ni --dataset ffhq --doc ffhq --algo hmc_latent --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc_latent --tau 1.0 --epsilon 0.05
+```
+
+- algo : resample, hmc_latent
+- timesteps : depends on algorithm. 3 for hmc_latent, 500 for resample
+
 
 
 ## References
