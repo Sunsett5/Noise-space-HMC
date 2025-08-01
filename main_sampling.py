@@ -657,7 +657,7 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     return (xt.detach().clone(), xt.detach().clone())
 
-def hmc1(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     x = x.detach().requires_grad_()
     tau = opt.tau
     epsilon = opt.epsilon
@@ -773,7 +773,7 @@ def hmc1(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     return torch.stack(final_img_list) #x_accept
 
-def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+def hmc_test_conditioning(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     x = x.detach().requires_grad_()
     tau = opt.tau
     epsilon = opt.epsilon
