@@ -958,7 +958,7 @@ def get_parser():
         "--tau", type=float, default=1.0, help="Tau for HMC"
     )
     parser.add_argument(
-        "--epsilon", type=float, default=0.1, help="Epsilon for HMC"
+        "--epsilon", type=float, default=0.05, help="Epsilon for HMC"
     )
     parser.add_argument(
         "--sigma_y", type=float, default=0.5, help="sigma_y for HMC (measurement noise)"
