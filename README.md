@@ -14,17 +14,19 @@ cd Noise-space-HMC
 
 ### 2) Download pretrained checkpoint
 
-From the [link](https://onedrive.live.com/?authkey=%21AOIJGI8FUQXvFf8&id=72419B431C262344%21103807&cid=72419B431C262344), download the checkpoint "celebahq_p2.pt" and paste it to ./models/;
-
-From the [link](https://drive.google.com/drive/folders/1jElnRoFv7b31fG0v6pTSQkelbSX3xGZh), download the checkpoint "ffhq_10m.pt" and paste it to ./models/;
-
-From the [link](https://github.com/openai/guided-diffusion), download the checkpoint "lsun_bedroom.pt" and paste it to ./models/.
 
 ```
-mkdir -p models
 pip3 install gdown
 gdown https://drive.google.com/uc?id=1BGwhRWUoguF-D8wlZ65tf227gp3cDUDh -O ./models/ffhq_10m.pt
 gdown https://drive.google.com/uc?id=1wSoA5fm_d6JBZk4RZ1SzWLMgev4WqH21 -O ./models/celeba_hq.ckpt
+
+mkdir -p models/ldm
+wget https://ommer-lab.com/files/latent-diffusion/ffhq.zip -P ./models/ldm
+unzip models/ldm/ffhq.zip -d ./models/ldm
+
+mkdir -p models/first_stage_models/vq-f4
+wget https://ommer-lab.com/files/latent-diffusion/vq-f4.zip -P ./models/first_stage_models/vq-f4
+unzip models/first_stage_models/vq-f4/vq-f4.zip -d ./models/first_stage_models/vq-f4
 ```
 
 Download the checkpoint "GOPRO_wVAE.pth"
@@ -73,6 +75,8 @@ sed -i 's/torch\._six\.string_classes/str/g' /{DOWNLOAD_DIR}/miniconda3/envs/NHM
 sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /{DOWNLOAD_DIR}/.local/lib/python3.8/site-packages/lpips/lpips.py
 ```
 
+If encounter this bug "ImportError: cannot import name 'VectorQuantizer2' from 'taming.modules.vqvae.quantize'". Download [quantize.py](https://github.com/CompVis/stable-diffusion/issues/72). Then replace this file miniconda/envs/NHMC/lib/python3.8/site-packages/taming/modules/vqvae/quantize.py
+
 ## 5) Run experiment
 Pixel Space
 ```
@@ -99,7 +103,7 @@ Latent Space
 python3 main_sampling_latent.py --ni --dataset ffhq --doc ffhq --algo hmc_latent --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc_latent --tau 1.0 --epsilon 0.05
 ```
 
-- algo : resample, hmc_latent
+- algo : resample_original, hmc_latent
 - timesteps : depends on algorithm. 3 for hmc_latent, 500 for resample
 
 
