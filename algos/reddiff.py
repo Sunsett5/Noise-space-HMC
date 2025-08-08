@@ -25,13 +25,13 @@ class RED_diff(Base_Algo):
         if x0_t_last is None:
             x0_t_last = x0_t
         with torch.enable_grad():
-            x0_t_last = x0_t_last.detach().clone().requires_grad_(True)
+            x0_t = x0_t.detach().clone().requires_grad_(True)
             # x0_t.requires_grad_(True)
             # print(x0_t.norm())
             # mat = self.H_funcs.H_pinv(y_0) - self.H_funcs.H_pinv(self.H_funcs.H(x0_t))
             # mat = mat.view(xt.shape[0], xt.shape[1], xt.shape[2], xt.shape[3]).detach()
-            loss = torch.sum((y_0 - self.H_funcs.H(x0_t_last))**2)
-            grad = torch.autograd.grad(outputs=loss, inputs=x0_t_last)[0]
+            loss = torch.sum((y_0 - self.H_funcs.H(x0_t))**2)
+            grad = torch.autograd.grad(outputs=loss, inputs=x0_t)[0]
         norm = torch.linalg.norm(grad)
         # add_up = c1 * torch.randn_like(x0_t) + c2 * et
         add_up = (1-at_next).sqrt() * torch.randn_like(x0_t)

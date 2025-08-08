@@ -319,7 +319,7 @@ class DDIMSampler(object):
         return img, intermediates
 
 
-    def pixel_optimization(self, measurement, x_prime, operator_fn, eps=1e-3, max_iters=50):
+    def pixel_optimization(self, measurement, x_prime, operator_fn, eps=1e-3, max_iters=20):
         """
         Function to compute argmin_x ||y - A(x)||_2^2
 
@@ -355,7 +355,7 @@ class DDIMSampler(object):
         return opt_var
 
 
-    def latent_optimization(self, measurement, z_init, operator_fn, eps=1e-3, max_iters=25, lr=None):
+    def latent_optimization(self, measurement, z_init, operator_fn, eps=1e-3, max_iters=10, lr=None):
 
         """
         Function to compute argmin_z ||y - A( D(z) )||_2^2
