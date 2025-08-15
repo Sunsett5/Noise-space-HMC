@@ -452,6 +452,8 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
     
     for i_img, (x_orig, classes) in enumerate(pbar):
 
+        #if i_img <= 5:
+        #    continue
 
         x_orig = x_orig.to(device)
         x_orig = data_transform(config, x_orig)
@@ -839,14 +841,16 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     epsilon = opt.epsilon
     L = opt.L
     if 'phase' in opt.deg:
-        warm_up = 60
+        warm_up = 100
         sampling = 10
-        gamma = 0.95
+        gamma_accept = 1.0
+        gamma_reject = 0.95
         total_epochs = warm_up + 2 * sampling
     else:
         warm_up = 30
         sampling = 10
-        gamma = 0.95
+        gamma_accept = 0.98
+        gamma_reject = 0.95
         total_epochs = warm_up + 2 * sampling
 
     M_diag = torch.ones_like(x).reshape(-1)
@@ -859,6 +863,7 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     sigma_y_list = []
 
     d_y = y_0.view(-1).numel()
+    d = x.view(-1).numel()
 
     accepted = 0
     rejected = 0
@@ -867,20 +872,26 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     epoch = 0
 
+    if 'phase' in opt.deg:
+        schedule = np.arange(warm_up)/warm_up
+        sigma_start = 10
+        sigma_mid = 5
+        sigma_0 = opt.sigma_0
+        k= 2/3
+        sigma_y_schedule = sigma_schedule(schedule, sigma_start, sigma_mid, sigma_0, k)
+
     while epoch < total_epochs:
         if 'phase' in opt.deg:
-            if epoch <= (2/3)*warm_up:
-                sigma_y = 3+ (20-3) * (1 - (3/2) * epoch / warm_up)
-            elif epoch <= warm_up:
-                sigma_y = opt.sigma_0 + (3-opt.sigma_0) * 9 * (1 - epoch / warm_up) ** 2
+            if epoch < warm_up:
+                sigma_y = sigma_y_schedule[epoch]
             else:
                 sigma_y = opt.sigma_0
         else:
-            if epoch <= warm_up:
+            if epoch < warm_up:
                 sigma_y = opt.sigma_0 + (3.0-opt.sigma_0) * (1 - epoch / warm_up) ** 4
                 #sigma_y = opt.sigma_0
 
-            elif epoch == warm_up + 1:
+            elif epoch == warm_up:
                 sigma_y = opt.sigma_0
                 if epsilon > 0.01:
                     epsilon = 0.01
@@ -943,8 +954,9 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                 accept = torch.rand(1).item() < acceptance_ratio.item()
 
         if accept:
+            rejected = 0
             if epoch < warm_up:
-                epsilon = epsilon * 0.98
+                epsilon = epsilon * gamma_accept
             x_accept = xt.detach().clone()
 
             if epoch >= warm_up + sampling:
@@ -964,13 +976,58 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                     psnr_list.append(psnr.item())
                     sigma_y_list.append(sigma_y)
                     loss_list.append(loss.item())
-                    print('epoch', epoch, 'PSNR:', psnr.item(), 'sigma_y:', sigma_y, 'epsilon', epsilon)
+                    print('epoch', epoch, 'PSNR:', psnr.item(), 'sigma_y:', sigma_y, 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
         else:
+            rejected += 1
+            if rejected >= 10 and epoch >= warm_up + 1 * sampling:
+                break
             if opt.verbose: print(rejected, 'rejected')
             if epoch < warm_up + 1 * sampling:
-                epsilon = epsilon * gamma
+                epsilon = epsilon * gamma_reject
+            elif epoch == warm_up + 1 * sampling:
+                epsilon = epsilon * 0.75
+
+    if len(final_img_list) == 0:
+        final_img_list.append(x_accept[0])
 
     return torch.stack(final_img_list)
+
+def sigma_schedule(x, sigma_start, sigma_mid, sigma_0, k):
+    """
+    Piecewise annealing schedule for sigma_y.
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Normalized position in [0, 1].
+    sigma_start : float
+        Starting sigma value at x=0.
+    sigma_mid : float
+        Sigma value at transition point k.
+    sigma_0 : float
+        Final sigma value at x=1.
+    k : float
+        Transition point between linear and quadratic [0, 1].
+    """
+    x = np.asarray(x)
+
+    # Precompute slopes for the linear part
+    m_linear = (sigma_mid - sigma_start) / k if k != 0 else 0
+
+    sigma = np.zeros_like(x, dtype=float)
+
+    # First part:
+    mask1 = x <= k
+    t = x[mask1]/(k)
+    sigma[mask1] = sigma_mid + (sigma_start - sigma_mid) * (1 - t)
+
+    # Second part:
+    mask2 = ~mask1
+    t = (x[mask2] - k) / (1 - k)  # normalize from 0 to 1 over the second part
+    sigma[mask2] = sigma_0 + (sigma_mid - sigma_0) * (1-t)**1.5
+
+    return sigma
+
 
 def warm_start(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, sigma_y, orig_pic):
     x_param = torch.nn.Parameter(x.detach().clone())  
@@ -1056,7 +1113,7 @@ def hmc_window(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     while epoch < epochs + 2 * sampling:
         if epoch < epochs:
-            sigma_y = opt.sigma_0 + 1.6 * (1 - epoch / epochs) ** 2
+            sigma_y = opt.sigma_0 + 1.6 * (1 - epoch / epochs) ** 1
             #tau = 0.5 #sigma_y ** (2/3) * tau_decay  #(0.1 + (opt.tau-0.1) * (1 - epoch / epochs))
             #epsilon = 0.05 * tau  #(0.005 + (opt.epsilon-0.005) * (1 - epoch / epochs))
             L = max(1,math.floor(tau/epsilon))
