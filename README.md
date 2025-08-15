@@ -80,9 +80,9 @@ If encounter this bug "ImportError: cannot import name 'VectorQuantizer2' from '
 ## 5) Run experiment
 Pixel Space
 ```
-python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo hmc --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc --tau 1.0 --epsilon 0.05
+python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo hmc --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc 
 ```
-- algo : ddnm, diffpir, dmps, pigdm, reddiff, dps, daps, dmplug, hmc
+- algo : diffpir, reddiff, dps, daps, dmplug_adam, hmc
 - timesteps : depends on algorithm. 3 for hmc, 3 for dmplug, 1000 for dps, 100 for diffpir
 - deg : forward operator. 
     - sr4
@@ -95,12 +95,13 @@ python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo hmc --timesteps 3
 - sigma_0 : std dev of measurement noise (sigma_y)
 - i : image output folder
 For HMC only
-- tau : length of 1 HMC update (default 1.0)
+- L : number of leapfrog steps (default 20)
 - epsilom : length of 1 leapfrog update (default 0.05)
+- verbose : print psnr at each epoch
 
 Latent Space
 ```
-python3 main_sampling_latent.py --ni --dataset ffhq --doc ffhq --algo hmc_latent --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc_latent --tau 1.0 --epsilon 0.05
+python3 main_sampling_latent.py --ni --dataset ffhq --doc ffhq --algo hmc_latent --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc_latent
 ```
 
 - algo : resample_original, hmc_latent
