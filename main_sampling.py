@@ -15,6 +15,10 @@ from tqdm import tqdm
 import time
 from omegaconf import OmegaConf
 
+#import pyro
+#import pyro.infer.mcmc as mcmc
+#from pyro.infer.mcmc import MCMC, NUTS
+
 from datasets import get_dataset, data_transform, inverse_data_transform
 from functions.ckpt_util import get_ckpt_path, download
 from models.diffusion import Model
@@ -122,6 +126,11 @@ def init_model(opt, config, model_config, device):
         model = model.to(device)
         model.eval()
 
+    elif config.model_type == 'imagenet':
+        model = create_model(**model_config)
+        model = model.to(device)
+        model.eval()
+
     return model
 
 
@@ -131,27 +140,25 @@ def init_algo(opt, model, H_funcs=None, sigma_0=0.01, deg=None, betas=None):
     elif opt.algo == 'ddrm':
         algo = DDRM(model, H_funcs, sigma_0)
     elif opt.algo == 'dps':
-        if 'celeba' in opt.config:
-            if 'cs' in deg:
-                lam = 1.0
-            elif deg == 'deblur_nonlinear':
-                lam = 1.0
+        if 'imagenet' in opt.config:
+            if deg == 'deblur_nonlinear':
+                lam = 0.5
             elif 'hdr' in deg:
+                lam = 1.0
+            elif 'deblur_aniso' in deg:
+                lam = 0.4
+            elif 'inpaint' in deg:
                 lam = 1.0
             elif 'phase' in deg:
                 lam = 0.4
-            elif 'deblur_aniso' in deg:
-                lam = 1.0
-            elif 'box' in deg:
-                lam = 1.0
             elif 'sr4' in deg:
                 lam = 1.0
             else:
                 lam = 1.0
         elif 'ffhq' in opt.config:
-            if 'cs' in deg:
+            if deg == 'deblur_nonlinear':
                 lam = 1.0
-            elif deg == 'deblur_nonlinear':
+            elif 'hdr' in deg:
                 lam = 1.0
             elif 'deblur_aniso' in deg:
                 lam = 1.0
@@ -160,55 +167,12 @@ def init_algo(opt, model, H_funcs=None, sigma_0=0.01, deg=None, betas=None):
             elif 'phase' in deg:
                 lam = 0.4
             elif 'sr4' in deg:
-                lam = 0
+                lam = 1.0
             else:
                 lam = 1.0
         else:
             lam = 1.0
         algo = DPS(model, H_funcs, sigma_0, lam=lam)
-    elif opt.algo == 'reddiff':
-        if 'celeba' in opt.config:
-            if 'inp' in deg:
-                if 'box' in deg:
-                    eta = 0.4
-                else:
-                    eta = 0.5
-            elif 'cs' in deg:
-                eta = 0.5
-            elif deg == 'deblur_nonlinear':
-                eta = 0.2
-            elif 'hdr' in deg:
-                eta = 0.1
-            elif 'sr_bicubic' in deg:
-                eta = 3.0
-            elif 'sr4' in deg:
-                eta = 7.0
-            elif 'deblur_aniso' in deg:
-                eta = 0.5
-            else:
-                eta = 1.0
-        elif 'ffhq' in opt.config:
-            if 'cs' in deg:
-                eta = 0.5
-            elif deg == 'deblur_nonlinear':
-                eta = 0.018
-            elif 'deblur_aniso' in deg:
-                eta = 0.05
-            elif 'inpaint' in deg:
-                eta = 0.1
-            elif 'sr4' in deg:
-                eta = 0.15
-            elif 'sr16' in deg:
-                eta = 1.5
-            elif 'hdr' in deg:
-                eta = 0.015
-            elif 'phase' in deg:
-                eta = 0.5
-            else:
-                eta = 0.5
-        else:
-            eta = 1.0
-        algo = RED_diff(model, H_funcs, sigma_0, eta=eta)
     elif opt.algo == 'diffpir':
         lam = 7.0
         algo = DiffPIR(model, H_funcs, sigma_0, lam=lam)
@@ -250,7 +214,7 @@ def init_algo(opt, model, H_funcs=None, sigma_0=0.01, deg=None, betas=None):
         timesteps = opt.timesteps
         algo = DAPS(daps_cfg, model, H_funcs, sigma_0, timesteps, mcmc_num_steps, lr, lr_min_ratio, betas=betas)
 
-    elif opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'hmc_window' or opt.algo == 'hmc_blind_noise':
+    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'hmc_blind_noise']:
         algo = Unconditional(model, H_funcs, sigma_0)
     else:
         raise NotImplementedError
@@ -412,27 +376,8 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
         )
 
         
-    # step size
-    if opt.default_lr: # using default step size to reproduce the metrics
-        raise NotImplementedError("Default step size is not implemented yet")
-        N = 1
-        steps=opt.timesteps
-        if 'imagenet' in opt.config:
-            dataset_name = 'imagenet'
-        elif 'celeba' in opt.config:
-            dataset_name = 'celeba'
-        elif 'ffhq' in opt.config:
-            dataset_name = 'ffhq'
-        else:
-            dataset_name = 'unknown'
-        # print(deg)
-        # print(steps)
-        # print(sigma_0)
-        # print(dataset_name)
-        #lr = get_default_lr(deg, steps, sigma_0, dataset_name)
-    else:
-        lr = opt.lr
-        N = opt.N
+    lr = opt.lr
+    N = opt.N
 
     print(f'Start from {opt.subset_start}')
     idx_init = opt.subset_start
@@ -452,9 +397,6 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
     
     for i_img, (x_orig, classes) in enumerate(pbar):
 
-        #if i_img <= 5:
-        #    continue
-
         x_orig = x_orig.to(device)
         x_orig = data_transform(config, x_orig)
 
@@ -467,9 +409,9 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             tvu.save_image(
                 inverse_data_transform(config, y_pinv[i]), os.path.join(opt.image_folder, f"y0_{idx_so_far + i}.png")
             )
-            tvu.save_image(
+            """ tvu.save_image(
                 inverse_data_transform(config, x_orig[i]), os.path.join(opt.image_folder, f"orig_{idx_so_far + i}.png")
-            )
+            ) """
 
         x = torch.randn(
                         y_0.shape[0],
@@ -501,8 +443,8 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             if opt.refine:
                 x_0 = refine_H_funcs.H(xt[-1:])
                 xt = iterative_sampling(x, n, b, seq_dps, seq_dps_next, algo_dps, opt, x_0, tqdm_disable=True)
-        elif opt.algo == 'hmc_window':
-            xt = hmc_window(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+        elif opt.algo == 'reddiff':
+            xt = reddiff(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'hmc_blind_noise':
             xt = hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         else:
@@ -594,6 +536,28 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
         print("Total Average Best LPIPS: {:.5f}".format(avg_best_lpips))
 
     return avg_psnr, avg_ssim, avg_lpips
+
+def reddiff(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+
+    x0 = iterative_sampling(x, n, b, [999], [-1], algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+    x0 = x0.detach().requires_grad_()
+    params_group1 = {'params': x0, 'lr': 0.5}
+    optimizer = torch.optim.Adam([params_group1])
+
+    epochs = 999
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        j = 999-epoch
+        t = (torch.ones(n) * j).to(x.device)
+        at = compute_alpha(b, t.long())
+        x = at.sqrt() * x0 + (1-at).sqrt() * torch.randn_like(x0)
+        x0_hat = iterative_sampling(x, n, b, [j], [-1], algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+        error = y_0 - H_funcs.H(x0) 
+        loss = torch.sum(error**2) + 0.25 * torch.dot((x0-x0_hat).detach().view(-1), x0.view(-1))
+        loss.backward()
+        optimizer.step()
+
+    return x0_hat
 
 def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     x = x.requires_grad_()
@@ -1028,6 +992,244 @@ def sigma_schedule(x, sigma_start, sigma_mid, sigma_0, k):
 
     return sigma
 
+def nuts(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+
+    orig_pic = []
+    for j in range(len(x_orig)):
+        orig_pic.append(inverse_data_transform(config, x_orig[j]))
+
+    # Sequence of annealed observation noise levels (σ_y values)
+    sigma_y_schedule = [1.0, 0.5, 0.2, 0.1]  # for example
+
+    # Number of samples and warmup steps per stage
+    num_samples_per_stage = 30
+    warmup_steps_per_stage = 20
+
+    # --- 2. Helper: log-posterior factory for a given sigma_y ---
+    def make_log_prob_fn(sigma_y_t):
+        def log_prob_fn(x):
+            xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+            residual = H_funcs.H(xt) - y_0
+            # Gaussian likelihood
+            log_lik = -0.5 * torch.sum(residual**2) / (sigma_y_t**2)
+            # Standard normal prior on x
+            log_prior = -0.5 * torch.sum(x**2)
+            return log_lik + log_prior
+        return log_prob_fn
+
+    # --- 3. MCMC across annealing stages ---
+
+    all_samples = []  # to collect samples from each stage
+
+    for stage, sigma_y_t in enumerate(sigma_y_schedule, 1):
+        print(f"\n=== Annealing stage {stage}/{len(sigma_y_schedule)}: σ_y = {sigma_y_t} ===")
+
+        log_prob_fn = make_log_prob_fn(sigma_y_t)
+
+        # Setup NUTS kernel (Pyro will adapt step size by default)
+        nuts_kernel = NUTS(log_prob_fn, adapt_step_size=True)
+
+        # Create MCMC sampler
+        mcmc_run = MCMC(
+            nuts_kernel,
+            num_samples=num_samples_per_stage,
+            warmup_steps=warmup_steps_per_stage,
+        )
+
+        # Warm start: pass current z_warm as initial kernel state
+        # Pyro supports passing `initial_params`
+        initial_params = {"x": x.clone()}
+        mcmc_run.run(initial_params=initial_params)
+
+        # Get samples; shape [num_samples, z_dim]
+        samples = mcmc_run.get_samples()["x"]
+
+        # Append these samples to the full list
+        all_samples.append(samples)
+
+        # Set warm start for next stage: use the last sample
+        x = samples[-1].detach().clone()
+
+        xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+
+        if opt.verbose:
+            x_save = [inverse_data_transform(config, y) for y in xt.detach()]
+            for j in range(len(x_save)):
+                tvu.save_image(
+                    x_save[j], os.path.join(opt.image_folder, f"hmc_{stage}.png")
+                )
+                mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
+                psnr = 10 * torch.log10(1 / mse)
+                print('Stage', stage, 'PSNR:', psnr.item(), 'sigma_y:', sigma_y_t)
+
+    # Concatenate all samples for final analysis
+    final_samples = torch.cat(all_samples, dim=0)  # shape [total_samples, z_dim]
+
+    print("\nSampling complete. Total posterior samples:", final_samples.shape[0])
+
+
+def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+
+    orig_pic = []
+    for j in range(len(x_orig)):
+        orig_pic.append(inverse_data_transform(config, x_orig[j]))
+
+    x = x.detach().requires_grad_()
+    epsilon = opt.epsilon
+    L = opt.L
+    if 'phase' in opt.deg:
+        warm_up = 100
+        sampling = 10
+        gamma_accept = 1.0
+        gamma_reject = 0.95
+        total_epochs = warm_up + 2 * sampling
+    else:
+        warm_up = 30
+        sampling = 10
+        gamma_accept = 0.98
+        gamma_reject = 0.95
+        total_epochs = warm_up + 2 * sampling
+
+    M_diag = torch.ones_like(x).reshape(-1)
+    std_diag = torch.sqrt(M_diag)
+    inv_M_diag = 1.0 / M_diag
+
+    psnr_list = []
+    loss_list = []
+    final_img_list = []
+    sigma_y_list = []
+
+    d_y = y_0.view(-1).numel()
+    d = x.view(-1).numel()
+
+    accepted = 0
+    rejected = 0
+    epsilon_decay = 0
+
+
+    epoch = 0
+
+    if 'phase' in opt.deg:
+        schedule = np.arange(warm_up)/warm_up
+        sigma_start = 10
+        sigma_mid = 5
+        sigma_0 = opt.sigma_0
+        k= 2/3
+        sigma_y_schedule = sigma_schedule(schedule, sigma_start, sigma_mid, sigma_0, k)
+
+    while epoch < total_epochs:
+        if 'phase' in opt.deg:
+            if epoch < warm_up:
+                sigma_y = sigma_y_schedule[epoch]
+            else:
+                sigma_y = opt.sigma_0
+        else:
+            if epoch < warm_up:
+                sigma_y = opt.sigma_0 + (3.0-opt.sigma_0) * (1 - epoch / warm_up) ** 4
+                #sigma_y = opt.sigma_0
+
+            elif epoch == warm_up:
+                sigma_y = opt.sigma_0
+                if epsilon > 0.01:
+                    epsilon = 0.01
+                    pass
+
+        # initialize momentum
+        p = torch.randn_like(x, device=device) * std_diag.view_as(x)
+       
+        xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+        xt_start = xt.detach().clone()
+        loss = torch.sum((y_0 - H_funcs.H(xt))**2)
+        current_loss = loss.detach()
+        loss_grad = torch.autograd.grad(loss, x, retain_graph=False)[0]
+        total_current_loss = (1/2) * torch.sum(x.detach()**2, dim=(1, 2, 3)) + (1/(2 * sigma_y**2)) * current_loss
+
+        H = total_current_loss + (1/2) * torch.sum(inv_M_diag.view_as(x) * p**2)
+
+        x_proposal = x.detach().clone().requires_grad_(True)
+
+        early_stop = False
+
+        for l in range(L):
+
+            # update momentum
+            p = p - (epsilon / 2) * (x_proposal.detach() + 1/(2 * sigma_y**2) * loss_grad)
+
+            x_proposal = x_proposal + epsilon * inv_M_diag.view_as(x) * p 
+            x_proposal = x_proposal.detach().requires_grad_(True)
+
+            xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+            predicted_meas = H_funcs.H(xt)
+            loss = torch.sum((y_0 - predicted_meas)**2)
+            loss_grad = torch.autograd.grad(loss, x_proposal, retain_graph=False)[0]
+            posterior_grad = x_proposal.detach() + 1/(2 * sigma_y**2) * loss_grad
+
+            p = p - (epsilon/2) * posterior_grad
+
+            #H_e = (1/2) * torch.sum(x_proposal.detach()**2, dim=(1, 2, 3)) + (1/(2 * sigma_y**2)) * loss.detach() + (1/2) * torch.sum(inv_M_diag.view_as(x) * p**2)
+            
+            #delta_H = H_e - H
+            #print('Delta_H', delta_H)
+            #proposal_loss = loss.detach()
+            #total_proposal_loss = (1/2) * torch.sum(x_proposal.detach()**2, dim=(1, 2, 3)) + (1/(2 * sigma_y**2)) * proposal_loss
+            #print('ratio', total_proposal_loss.item() / total_current_loss.item())
+            #if (epoch < warm_up) and (total_proposal_loss/total_current_loss > 1.02):
+            ##    print('stopping early')
+            #    early_stop = True
+            #    accept = False
+            #    break
+
+        if not early_stop:
+            proposal_loss = loss.detach()
+            total_proposal_loss = (1/2) * torch.sum(x_proposal.detach()**2, dim=(1, 2, 3)) + (1/(2 * sigma_y**2)) * proposal_loss
+            H_proposal = total_proposal_loss + (1/2) * torch.sum(inv_M_diag.view_as(x) * p**2)
+            delta_H = H_proposal - H
+            if (epoch < warm_up) and (total_proposal_loss < total_current_loss):
+                accept = True
+            else:
+                acceptance_ratio = min(torch.tensor([1], device=device), torch.exp(-delta_H))
+                accept = torch.rand(1).item() < acceptance_ratio.item()
+
+        if accept:
+            rejected = 0
+            if epoch < warm_up:
+                epsilon = epsilon * gamma_accept
+            x_accept = xt.detach().clone()
+
+            if epoch >= warm_up + sampling:
+                final_img_list.append(x_accept[0])
+            epoch += 1
+
+            x = x_proposal.detach().clone().requires_grad_(True)
+            
+            if opt.verbose:
+                x_save = [inverse_data_transform(config, y) for y in xt.detach()]
+                for j in range(len(x_save)):
+                    tvu.save_image(
+                        x_save[j], os.path.join(opt.image_folder, f"hmc_{epoch}.png")
+                    )
+                    mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
+                    psnr = 10 * torch.log10(1 / mse)
+                    psnr_list.append(psnr.item())
+                    sigma_y_list.append(sigma_y)
+                    loss_list.append(loss.item())
+                    print('epoch', epoch, 'PSNR:', psnr.item(), 'sigma_y:', sigma_y, 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
+        else:
+            rejected += 1
+            if rejected >= 10 and epoch >= warm_up + 1 * sampling:
+                break
+            if opt.verbose: print(rejected, 'rejected')
+            if epoch < warm_up + 1 * sampling:
+                epsilon = epsilon * gamma_reject
+            elif epoch == warm_up + 1 * sampling:
+                epsilon = epsilon * 0.75
+
+    if len(final_img_list) == 0:
+        final_img_list.append(x_accept[0])
+
+    return torch.stack(final_img_list)
+
+
 
 def warm_start(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, sigma_y, orig_pic):
     x_param = torch.nn.Parameter(x.detach().clone())  
@@ -1239,10 +1441,7 @@ def iterative_sampling(xt, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=Fal
         next_t = (torch.ones(n) * j).to(xt.device)
         at = compute_alpha(b, t.long())
         at_next = compute_alpha(b, next_t.long())
-        if opt.algo == 'reddiff':
-            x0_t, add_up = algo.cal_x0(xt, x0_t_last, t, at, at_next, y_0, opt.noise)
-        else:
-            x0_t, add_up = algo.cal_x0(xt, t, at, at_next, y_0, opt.noise)
+        x0_t, add_up = algo.cal_x0(xt, t, at, at_next, y_0, opt.noise)
 
         x0_t_last = x0_t
         xt_next = algo.map_back(x0_t, y_0, add_up, at_next, at)
@@ -1255,84 +1454,12 @@ def gaussian_log_prob(x_from, x_to, grad_from, tau):
     diff = x_to - mean
     return -0.5 * (diff.pow(2).sum() / tau**2)
 
-def sphere_update(x, grad, r, alpha, preserve_norm=True):
-    """
-    Performs a geodesic gradient descent step on the sphere.
-    
-    Args:
-        x (torch.Tensor): Current point on the sphere
-        grad (torch.Tensor): Gradient at x, same shape as x.
-        alpha (float): Step size (arc length in radians).
-    
-    Returns:
-        torch.Tensor: Updated point on the sphere, same shape as x.
-    """
-    with torch.no_grad():
-        # Flatten to vector
-        x_flat = x.view(-1)
-        g_flat = grad.view(-1)
-
-        # Project gradient onto tangent space of the sphere
-        inner = torch.dot(g_flat, x_flat) / (x_flat.norm() ** 2)
-        g_tan = g_flat - inner * x_flat
-
-        # If tangent vector is (numerically) zero, no update
-        if g_tan.norm() < 1e-12:
-            return x
-        
-        # Geodesic update on the sphere of radius ||x||
-        u = g_tan / g_tan.norm()  # unit tangent direction
-
-        if preserve_norm:
-            x_new = math.cos(alpha / r) * x_flat - math.sin(alpha / r) * r * u
-        else:
-            x_new = x_flat - math.sin(alpha) * u
-
-    return x_new.view_as(x)
 
 def cosine_similarity(x, y, eps=1e-8):
     dot = torch.sum(x * y)
     norm_x = torch.norm(x)
     norm_y = torch.norm(y)
     return dot / (norm_x * norm_y + eps)
-
-import torch
-
-def expected_clipped_sse(s, sigma_y, a=-1.0, b=1.0):
-    """
-    Compute E[(clip(s + n, a, b) - s)^2] where n ~ N(0, sigma_y^2), in PyTorch.
-
-    Args:
-        s       : tensor of shape (...) predicted measurements
-        sigma_y : scalar float (can be torch.tensor) noise stddev > 0
-        a, b    : clipping bounds (floats)
-
-    Returns:
-        Tensor same shape as s: per-pixel expected squared error
-    """
-    # Standardize bounds
-    t_a = (a - s) / sigma_y
-    t_b = (b - s) / sigma_y
-
-    # Normal pdf and cdf in torch
-    phi_a = torch.exp(-0.5 * t_a**2) / torch.sqrt(torch.tensor(2.0 * torch.pi, device=s.device))
-    phi_b = torch.exp(-0.5 * t_b**2) / torch.sqrt(torch.tensor(2.0 * torch.pi, device=s.device))
-
-    Phi_a = 0.5 * (1.0 + torch.erf(t_a / torch.sqrt(torch.tensor(2.0, device=s.device))))
-    Phi_b = 0.5 * (1.0 + torch.erf(t_b / torch.sqrt(torch.tensor(2.0, device=s.device))))
-
-    # Left tail: clipped to a
-    left = (a - s)**2 * Phi_a
-
-    # Middle: unclipped region
-    middle = (sigma_y**2) * (Phi_b - Phi_a - t_b * phi_b + t_a * phi_a)
-
-    # Right tail: clipped to b
-    right = (b - s)**2 * (1.0 - Phi_b)
-
-    sum_squared_error = (left + middle + right).sum()
-
-    return sum_squared_error
 
 
 def get_parser():
