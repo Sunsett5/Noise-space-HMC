@@ -35,7 +35,7 @@ class RED_diff(Base_Algo):
         norm = torch.linalg.norm(grad)
         # add_up = c1 * torch.randn_like(x0_t) + c2 * et
         add_up = (1-at_next).sqrt() * torch.randn_like(x0_t)
-        x0_t = x0_t_last + 1.0 * ((x0_t - x0_t_last) * 1.0 - grad * self.eta)
+        x0_t = x0_t_last + 0.5 * ((x0_t - x0_t_last) * 1.0 - grad * self.eta)
         # x0_t = x0_t.clip(-1, 1)
         return x0_t, add_up
     
