@@ -18,7 +18,9 @@ cd Noise-space-HMC
 ```
 pip3 install gdown
 gdown https://drive.google.com/uc?id=1BGwhRWUoguF-D8wlZ65tf227gp3cDUDh -O ./models/ffhq_10m.pt
+gdown https://drive.google.com/uc?id=1HAy7P19PckQLczVNXmVF-e_CRxq098uW -O ./models/imagenet256.pt
 gdown https://drive.google.com/uc?id=1wSoA5fm_d6JBZk4RZ1SzWLMgev4WqH21 -O ./models/celeba_hq.ckpt
+
 
 mkdir -p models/ldm
 wget https://ommer-lab.com/files/latent-diffusion/ffhq.zip -P ./models/ldm

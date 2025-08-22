@@ -21,7 +21,6 @@ from ldm_loader import load_model_from_config, load_yaml
 from algos.ddnm import DDNM
 from algos.ddrm import DDRM
 from algos.dps import DPS
-from algos.reddiff import RED_diff
 from algos.diffpir import DiffPIR
 from algos.unconditional_latent import Unconditional_Latent
 from algos.resample_original import DDIMSampler
