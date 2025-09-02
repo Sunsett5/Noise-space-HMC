@@ -375,6 +375,20 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             generator=g,
         )
 
+    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'hmc_blind_noise':
+        #skip = (opt.num_timesteps) // (opt.timesteps+1)
+        skip = 750 // opt.timesteps
+        seq = [skip * i for i in range(1, opt.timesteps+1)]
+    else:
+        skip = opt.num_timesteps // opt.timesteps
+        seq = list(range(skip, opt.num_timesteps, skip))
+
+    seq_next = [-1] + list(seq[:-1])
+    skip_dps = 1
+    seq_dps = list(range(skip_dps, opt.num_timesteps, skip_dps))
+    seq_dps_next = [-1] + list(seq_dps[:-1])
+    print(seq)
+
         
     lr = opt.lr
     N = opt.N
@@ -394,6 +408,8 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
     pbar = tqdm(val_loader)
     loss_fn_vgg = lpips.LPIPS(net='vgg').cuda()
 
+    p_impulse_list = torch.rand(len(pbar)) * 0.2
+    sigma_speckle_list = torch.rand(len(pbar)) * 0.4
     
     for i_img, (x_orig, classes) in enumerate(pbar):
 
@@ -401,7 +417,18 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
         x_orig = data_transform(config, x_orig)
 
         y_0 = H_funcs.H(x_orig).detach()
-        y_0 = y_0 + sigma_0 * torch.randn_like(y_0)
+        if opt.noise_type == "gaussian":
+            y_0 = y_0 + sigma_0 * torch.randn_like(y_0)
+        elif opt.noise_type == "impulse":
+            # impulse prob
+            p = p_impulse_list[i_img]
+            # draw random uniforms same shape as img
+            rand = torch.rand_like(y_0)
+            y_0[rand < p/2] = -1
+            y_0[rand > 1-p/2] = 1
+        elif opt.noise_type == "speckle":
+            y_0 = y_0 * (1 + torch.randn_like(y_0) * sigma_speckle_list[i_img])
+
         y_pinv = H_funcs.H_pinv(y_0).view(y_0.shape[0], config.data.channels, config.data.image_size, config.data.image_size)
         os.makedirs(opt.image_folder, exist_ok=True)
 
@@ -409,9 +436,9 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             tvu.save_image(
                 inverse_data_transform(config, y_pinv[i]), os.path.join(opt.image_folder, f"y0_{idx_so_far + i}.png")
             )
-            tvu.save_image(
-                inverse_data_transform(config, x_orig[i]), os.path.join(opt.image_folder, f"orig_{idx_so_far + i}.png")
-            )
+            #tvu.save_image(
+            #    inverse_data_transform(config, x_orig[i]), os.path.join(opt.image_folder, f"orig_{idx_so_far + i}.png")
+            #)
 
         x = torch.randn(
                         y_0.shape[0],
@@ -421,16 +448,6 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
                         device=device,
                     )
         
-
-        if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'hmc_window' or opt.algo == 'hmc_blind_noise':
-            skip = (opt.num_timesteps) // (opt.timesteps+1)
-        else:
-            skip = opt.num_timesteps // opt.timesteps
-        seq = list(range(skip, opt.num_timesteps, skip))
-        seq_next = [-1] + list(seq[:-1])
-        skip_dps = 1
-        seq_dps = list(range(skip_dps, opt.num_timesteps, skip_dps))
-        seq_dps_next = [-1] + list(seq_dps[:-1])
         xt = x
         n = x.shape[0]
         
@@ -460,7 +477,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             if opt.algo == 'dmplug_adam':
                 final_best = torch.stack([inverse_data_transform(config, y) for y in xt_best])
 
-            if len(xt) > 1:
+            """if len(xt) > 1:
                 std = final.std(dim=0)  
                 std_mean = std.mean(dim=0)
                 std_plot = (std_mean - std_mean.min()) / (std_mean.max() - std_mean.min())
@@ -474,7 +491,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
                 # Save to PNG
                 plt.tight_layout()
                 plt.savefig(os.path.join(opt.image_folder, f"std_dev_map_{idx_so_far}.png"), dpi=300)
-                plt.close()
+                plt.close()"""
 
 
             metrics_sum = [[], [], []]
@@ -576,9 +593,9 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     psnr_list = []
 
     best_psnr = 0
-    epochs = 10000
-    buffer_size = 50
-    patience = 300
+    epochs = 600
+    buffer_size = 10
+    patience = 100
     earlystop = EarlyStop(size=buffer_size,patience=patience)
     running = True
 
@@ -628,7 +645,7 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     if xt_early is None:
         xt_early = xt.detach().clone()
 
-    return (xt_early, xt_best)
+    return (xt_early, xt_early)
 
 
 def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
@@ -649,8 +666,8 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     else:
         warm_up = 30
         sampling = 10
-        gamma_accept = 0.98
-        gamma_reject = 0.95
+        gamma_accept = 1 #0.98
+        gamma_reject = 0.98
         total_epochs = warm_up + 2 * sampling
 
     M_diag = torch.ones_like(x).reshape(-1)
@@ -761,6 +778,8 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                     sigma_y_list.append(sigma_y)
                     loss_list.append(loss.item())
                     print('epoch', epoch, 'PSNR:', psnr.item(), 'sigma_y:', sigma_y, 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
+                    discrep = y_0 - H_funcs.H(xt)
+                    print('data fidelity:', torch.sum(discrep**2).item()/(d_y))
         else:
             rejected += 1
             if rejected >= 10 and epoch >= warm_up + 1 * sampling:
@@ -826,11 +845,11 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         total_epochs = warm_up + 2 * sampling
     else:
         warm_up1 = 10
-        warm_up2 = 30
-        sampling = 10
-        gamma_accept = 0.98
+        warm_up2 = 70
+        sampling = 1
+        gamma_accept = 1 #0.98
         gamma_reject = 0.95
-        total_epochs = warm_up1 + warm_up2 + 2 * sampling
+        total_epochs = warm_up1 + warm_up2 + sampling
 
     M_diag = torch.ones_like(x).reshape(-1)
     std_diag = torch.sqrt(M_diag)
@@ -849,8 +868,11 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     while epoch < total_epochs:
 
-        alpha0 = 10
-        beta0 = (alpha0+1) * 0.5**2
+        if epoch == warm_up1 and epsilon > 0.02:
+            epsilon = 0.01
+
+        alpha0 = 0 # 10
+        beta0 = 0 #(alpha0+1) * 0.5**2
 
         # initialize momentum
         p = torch.randn_like(x, device=device) * std_diag.view_as(x)
@@ -858,7 +880,7 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
         error = torch.sum((y_0 - H_funcs.H(xt))**2)
         if epoch < warm_up1:
-            sigma_y = 0.5 + 2 * (1 - epoch / warm_up1) ** 2
+            sigma_y = 0.5 + 2 * (1 - epoch / warm_up1)
             loss = (1/(2 * sigma_y**2)) * error
         else:
             loss = (alpha0 + 0.5 * d_y) * torch.log(beta0 + 0.5 * error)
@@ -896,7 +918,11 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         delta_H = H_proposal - H
 
         acceptance_ratio = min(torch.tensor([1], device=device), torch.exp(-delta_H))
-        accept = torch.rand(1).item() < acceptance_ratio.item()
+        #print(total_current_loss.item(), total_proposal_loss.item())
+        if epoch < warm_up1 + warm_up2 and total_proposal_loss < total_current_loss:
+            accept = True
+        else:
+            accept = torch.rand(1).item() < acceptance_ratio.item()
 
         if accept:
             rejected = 0
@@ -904,7 +930,7 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                 epsilon = epsilon * gamma_accept
             x_accept = xt.detach().clone()
 
-            if epoch >= warm_up1 + warm_up2 + sampling:
+            if epoch >= warm_up1 + warm_up2:
                 final_img_list.append(x_accept[0])
             epoch += 1
 
@@ -921,24 +947,24 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                     psnr_list.append(psnr.item())
                     loss_list.append(loss.item())
                     print('epoch', epoch, 'PSNR:', psnr.item(), 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
+                    discrep = y_0 - H_funcs.H(xt)
+                    print('data fidelity:', torch.sum(discrep**2).item()/(d_y))
         else:
             rejected += 1
-            if rejected >= 10 and epoch >= warm_up1 + warm_up2 + 1 * sampling:
+            if rejected >= 10 and epoch >= warm_up1 + warm_up2:
                 break
-            if opt.verbose: print(rejected, 'rejected')
-            if epoch < warm_up1 + warm_up2 + 1 * sampling:
+            if opt.verbose: print(rejected, 'rejected', epsilon, 'epsilon')
+            if epoch < warm_up1 + warm_up2:
                 epsilon = epsilon * gamma_reject
-            elif epoch == warm_up1 + warm_up2 + 1 * sampling:
-                epsilon = epsilon * 0.75
 
     if len(final_img_list) == 0:
         final_img_list.append(x_accept[0])
 
     return torch.stack(final_img_list)
 
-def unconditional_refine(xt, n, b, algo, y_0, opt):
+def refine(xt, n, b, seq, seq_next, algo, y_0, opt):
     skip = 10
-    seq = list(range(skip, 700, skip))
+    seq = list(range(skip, 750, skip))
     seq_next = [-1] + list(seq[:-1])
 
     for i, j in tqdm(zip(seq_next[1:], seq[1:]), disable=False):
@@ -1132,6 +1158,9 @@ def get_parser():
     )
     parser.add_argument(
         "--deg", type=str, required=True, help="Degradation Type"
+    )
+    parser.add_argument(
+        "--noise_type", type=str, default="gaussian", help="Type of Measurement Noise"
     )
     parser.add_argument(
         "--sigma_0", type=float, required=True, help="True Measurement Noise"

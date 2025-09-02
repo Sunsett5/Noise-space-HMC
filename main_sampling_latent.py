@@ -390,13 +390,27 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
     pbar = tqdm(val_loader)
     loss_fn_vgg = lpips.LPIPS(net='vgg').cuda()
     
+    p_impulse_list = torch.rand(len(pbar)) * 0.2
+    sigma_speckle_list = torch.rand(len(pbar)) * 0.4
+    
     for i_img, (x_orig, classes) in enumerate(pbar):
 
         x_orig = x_orig.to(device)
         x_orig = data_transform(config, x_orig)
 
         y_0 = H_funcs.H(x_orig).detach()
-        y_0 = y_0 + sigma_0 * torch.randn_like(y_0)
+        if opt.noise_type == "gaussian":
+            y_0 = y_0 + sigma_0 * torch.randn_like(y_0)
+        elif opt.noise_type == "impulse":
+            # impulse prob
+            p = p_impulse_list[i_img]
+            # draw random uniforms same shape as img
+            rand = torch.rand_like(y_0)
+            y_0[rand < p/2] = -1
+            y_0[rand > 1-p/2] = 1
+        elif opt.noise_type == "speckle":
+            y_0 = y_0 * (1 + torch.randn_like(y_0) * sigma_speckle_list[i_img])
+
         y_pinv = H_funcs.H_pinv(y_0).view(y_0.shape[0], config.data.channels, config.data.image_size, config.data.image_size)
         os.makedirs(opt.image_folder, exist_ok=True)
 
@@ -404,9 +418,9 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             tvu.save_image(
                 inverse_data_transform(config, y_pinv[i]), os.path.join(opt.image_folder, f"y0_{idx_so_far + i}.png")
             )
-            tvu.save_image(
-                inverse_data_transform(config, x_orig[i]), os.path.join(opt.image_folder, f"orig_{idx_so_far + i}.png")
-            )
+            #tvu.save_image(
+            #    inverse_data_transform(config, x_orig[i]), os.path.join(opt.image_folder, f"orig_{idx_so_far + i}.png")
+            #)
 
 
         x = torch.randn(
@@ -814,6 +828,9 @@ def get_parser():
     )
     parser.add_argument(
         "--deg", type=str, required=True, help="Degradation"
+    )
+    parser.add_argument(
+        "--noise_type", type=str, default="gaussian", help="Type of Measurement Noise"
     )
     parser.add_argument(
         "--sigma_0", type=float, required=True, help="Measurement noise"
