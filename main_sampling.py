@@ -15,10 +15,6 @@ from tqdm import tqdm
 import time
 from omegaconf import OmegaConf
 
-import pyro
-import pyro.distributions as dist
-import pyro.infer.mcmc as mcmc
-from pyro.infer.mcmc import MCMC, NUTS
 
 from datasets import get_dataset, data_transform, inverse_data_transform
 from functions.ckpt_util import get_ckpt_path, download
@@ -214,7 +210,7 @@ def init_algo(opt, model, H_funcs=None, sigma_0=0.01, deg=None, betas=None):
         timesteps = opt.timesteps
         algo = DAPS(daps_cfg, model, H_funcs, sigma_0, timesteps, mcmc_num_steps, lr, lr_min_ratio, betas=betas)
 
-    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'hmc_blind_noise', 'nuts']:
+    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'hmc_blind_noise', 'langevin']:
         algo = Unconditional(model, H_funcs, sigma_0)
     else:
         raise NotImplementedError
@@ -375,7 +371,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             generator=g,
         )
 
-    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'hmc_blind_noise':
+    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'hmc_blind_noise' or opt.algo == 'langevin':
         #skip = (opt.num_timesteps) // (opt.timesteps+1)
         skip = 750 // opt.timesteps
         seq = [skip * i for i in range(1, opt.timesteps+1)]
@@ -466,6 +462,8 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             xt = reddiff(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'hmc_blind_noise':
             xt = hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+        elif opt.algo == 'langevin':
+            xt = langevin(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         else:
             with torch.no_grad():
                 xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True)
@@ -650,6 +648,8 @@ def dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
 def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
+    start_time = time.time()
+
     orig_pic = []
     for j in range(len(x_orig)):
         orig_pic.append(inverse_data_transform(config, x_orig[j]))
@@ -830,6 +830,8 @@ def sigma_schedule(x, sigma_start, sigma_mid, sigma_0, k):
 
 def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
+    start_time = time.time()
+
     orig_pic = []
     for j in range(len(x_orig)):
         orig_pic.append(inverse_data_transform(config, x_orig[j]))
@@ -838,16 +840,17 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
     epsilon = opt.epsilon
     L = opt.L
     if 'phase' in opt.deg:
-        warm_up = 100
-        sampling = 10
-        gamma_accept = 1.0
+        warm_up1 = 50
+        warm_up2 = 30
+        sampling = 1
+        gamma_accept = 1
         gamma_reject = 0.95
-        total_epochs = warm_up + 2 * sampling
+        total_epochs = warm_up1 + warm_up2 + sampling
     else:
         warm_up1 = 10
         warm_up2 = 70
         sampling = 1
-        gamma_accept = 1 #0.98
+        gamma_accept = 1
         gamma_reject = 0.95
         total_epochs = warm_up1 + warm_up2 + sampling
 
@@ -880,7 +883,10 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
         xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
         error = torch.sum((y_0 - H_funcs.H(xt))**2)
         if epoch < warm_up1:
-            sigma_y = 0.5 + 2 * (1 - epoch / warm_up1)
+            if 'phase' in opt.deg:
+                sigma_y = 1.0 + 10 * (1 - epoch / warm_up1)
+            else:
+                sigma_y = 0.5 + 2 * (1 - epoch / warm_up1)
             loss = (1/(2 * sigma_y**2)) * error
         else:
             loss = (alpha0 + 0.5 * d_y) * torch.log(beta0 + 0.5 * error)
@@ -946,7 +952,113 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
                     psnr = 10 * torch.log10(1 / mse)
                     psnr_list.append(psnr.item())
                     loss_list.append(loss.item())
-                    print('epoch', epoch, 'PSNR:', psnr.item(), 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
+                    print('epoch', epoch, 'sigma_y',sigma_y, 'PSNR:', psnr.item(), 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
+                    discrep = y_0 - H_funcs.H(xt)
+                    print('data fidelity:', torch.sum(discrep**2).item()/(d_y))
+        else:
+            rejected += 1
+            if rejected >= 10 and epoch >= warm_up1 + warm_up2:
+                break
+            if opt.verbose: print(rejected, 'rejected', epsilon, 'epsilon')
+            if epoch < warm_up1 + warm_up2:
+                epsilon = epsilon * gamma_reject
+
+    if len(final_img_list) == 0:
+        final_img_list.append(x_accept[0])
+
+    return torch.stack(final_img_list)
+
+def langevin(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+
+    orig_pic = []
+    for j in range(len(x_orig)):
+        orig_pic.append(inverse_data_transform(config, x_orig[j]))
+
+    x = x.detach().requires_grad_()
+    epsilon = opt.epsilon
+    if 'phase' in opt.deg:
+        warm_up = 100
+        sampling = 10
+        gamma_accept = 1.0
+        gamma_reject = 0.95
+        total_epochs = warm_up + 2 * sampling
+    else:
+        warm_up1 = 100
+        warm_up2 = 700
+        sampling = 1
+        gamma_accept = 1
+        gamma_reject = 1
+        total_epochs = warm_up1 + warm_up2 + sampling
+
+    psnr_list = []
+    loss_list = []
+    final_img_list = []
+
+    d = x.view(-1).numel()
+    d_y = y_0.view(-1).numel()
+    sigma_y = 2.5
+
+    epoch = 0
+    rejected = 0
+
+    xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+    error = torch.sum((y_0 - H_funcs.H(xt))**2)
+    current_loss = (1/(2 * sigma_y**2)) * error
+    current_loss_grad = torch.autograd.grad(current_loss, x, retain_graph=False)[0]
+    total_current_loss = (1/2) * torch.sum(x.detach()**2, dim=(1, 2, 3)) + current_loss.detach()
+
+    while epoch < total_epochs:
+
+        if epoch == warm_up1 and epsilon > 0.02:
+            epsilon = 0.01
+
+        alpha0 = 0
+        beta0 = 0
+
+        x_proposal = x - epsilon * (x + current_loss_grad) + torch.randn_like(x) * math.sqrt(2 * epsilon)
+       
+        xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
+        error = torch.sum((y_0 - H_funcs.H(xt))**2)
+        if epoch < warm_up1:
+            sigma_y = 0.5 + 2 * (1 - epoch / warm_up1)
+            proposal_loss = (1/(2 * sigma_y**2)) * error
+        else:
+            proposal_loss = (alpha0 + 0.5 * d_y) * torch.log(beta0 + 0.5 * error)
+
+        total_proposal_loss = (1/2) * torch.sum(x_proposal.detach()**2, dim=(1, 2, 3)) + proposal_loss.detach()
+
+        if epoch < warm_up1 + warm_up2 and total_proposal_loss < total_current_loss:
+            accept = True
+        else:
+            accept = False
+
+        print('current', total_current_loss.item(), 'proposal', total_proposal_loss.item())
+
+        if accept:
+            rejected=0
+            if epoch < warm_up1 + warm_up2:
+                epsilon = epsilon * gamma_accept
+            x_accept = xt.detach().clone()
+
+            if epoch >= warm_up1 + warm_up2:
+                final_img_list.append(x_accept[0])
+            epoch += 1
+
+            x = x_proposal.detach().clone().requires_grad_(True)
+            current_loss_grad = torch.autograd.grad(proposal_loss, x_proposal, retain_graph=False)[0]
+            total_current_loss = total_proposal_loss
+            
+            if opt.verbose:
+                x_save = [inverse_data_transform(config, y) for y in xt.detach()]
+                for j in range(len(x_save)):
+                    tvu.save_image(
+                        x_save[j], os.path.join(opt.image_folder, f"langevin_{epoch}.png")
+                    )
+                    mse = torch.mean((x_save[j] - orig_pic[j]) ** 2)
+                    psnr = 10 * torch.log10(1 / mse)
+                    psnr_list.append(psnr.item())
+                    loss_list.append(total_current_loss.item())
+                    print('epoch', epoch, 'PSNR:', psnr.item(), 'sigma_y', sigma_y, 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
                     discrep = y_0 - H_funcs.H(xt)
                     print('data fidelity:', torch.sum(discrep**2).item()/(d_y))
         else:

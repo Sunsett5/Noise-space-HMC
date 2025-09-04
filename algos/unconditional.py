@@ -26,3 +26,5 @@ class Unconditional(Base_Algo):
     def map_back(self, x0_t, y_0, add_up, at_next, at):
         xt_next = at_next.sqrt() * x0_t + add_up
         return xt_next
+    
+    #def optimize_xt_next(self, xt, at_next, at):

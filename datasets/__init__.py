@@ -129,6 +129,26 @@ def get_dataset(args, config):
         )
         test_dataset = Subset(dataset, test_indices)
 
+    elif config.data.dataset == 'imagenet':
+        dataset = torchvision.datasets.ImageFolder(
+            os.path.join(args.exp, "datasets", "imagenet"),
+            transform=transforms.Compose([
+                                            transforms.Resize([config.data.image_size, config.data.image_size]),
+                                            transforms.ToTensor()])
+        )
+        num_items = len(dataset)
+        indices = list(range(num_items))
+        # try shuffle
+        # random_state = np.random.get_state()
+        # np.random.seed(2019)
+        # np.random.shuffle(indices)
+        # np.random.set_state(random_state)
+        train_indices, test_indices = (
+            indices[: int(num_items * 0.9)],
+            indices[0:],
+        )
+        test_dataset = Subset(dataset, test_indices)
+
     elif config.data.dataset == "CelebA_HQ":
         if config.data.out_of_dist:
             dataset = torchvision.datasets.ImageFolder(
@@ -155,36 +175,6 @@ def get_dataset(args, config):
             )
             test_dataset = Subset(dataset, test_indices)
 
-    elif config.data.dataset == 'ImageNet':
-        # only use validation dataset here
-        
-        if config.data.subset_1k:
-            from datasets.imagenet_subset import ImageDataset
-            # dataset = ImageDataset(os.path.join(args.exp, 'datasets', 'imagenet', 'imagenet'),
-            #          os.path.join(args.exp, 'imagenet_val_1k.txt'),
-            #          image_size=config.data.image_size,
-            #          normalize=False)
-            dataset = ImageDataset(os.path.join(args.exp, 'datasets', 'imagenet', 'val_new'),
-                     os.path.join(args.exp, 'imagenet_val_100.txt'),
-                     image_size=config.data.image_size,
-                     normalize=False)
-            test_dataset = dataset
-        elif config.data.out_of_dist:
-            dataset = torchvision.datasets.ImageFolder(
-                os.path.join(args.exp, 'datasets', 'ood'),
-                transform=transforms.Compose([partial(center_crop_arr, image_size=config.data.image_size),
-                transforms.ToTensor()])
-            )
-            test_dataset = dataset
-        else:
-            dataset = torchvision.datasets.ImageNet(
-                os.path.join(args.exp, 'datasets', 'imagenet'), split='val',
-                transform=transforms.Compose([partial(center_crop_arr, image_size=config.data.image_size),
-                transforms.ToTensor()])
-            )
-            test_dataset = dataset
-    else:
-        dataset, test_dataset = None, None
 
     return dataset, test_dataset
 
