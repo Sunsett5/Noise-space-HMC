@@ -210,7 +210,7 @@ def init_algo(opt, model, H_funcs=None, sigma_0=0.01, deg=None, betas=None):
         timesteps = opt.timesteps
         algo = DAPS(daps_cfg, model, H_funcs, sigma_0, timesteps, mcmc_num_steps, lr, lr_min_ratio, betas=betas)
 
-    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'rnhmc', 'langevin']:
+    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'nanhmc', 'langevin']:
         algo = Unconditional(model, H_funcs, sigma_0)
     else:
         raise NotImplementedError
@@ -371,7 +371,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             generator=g,
         )
 
-    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'rnhmc' or opt.algo == 'langevin':
+    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'nanhmc' or opt.algo == 'langevin':
         #skip = (opt.num_timesteps) // (opt.timesteps+1)
         skip = 750 // opt.timesteps
         seq = [skip * i for i in range(1, opt.timesteps+1)]
@@ -457,8 +457,8 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             xt = nuts(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'reddiff':
             xt = reddiff(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
-        elif opt.algo == 'rnhmc':
-            xt = rnhmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+        elif opt.algo == 'nanhmc':
+            xt = nanhmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'langevin':
             xt = langevin(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         else:
@@ -489,7 +489,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
                 plt.close()"""
 
 
-            metrics_sum = [[], [], []]
+            metrics_sum = [[], [], [], []]
             for j in range(len(final)):
                 if j == len(final) - 1:
                     tvu.save_image(
@@ -500,13 +500,17 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
                 PSNR = 10 * torch.log10(1 / mse)
                 SSIM = ssim(final[j].detach().cpu().numpy(), orig.detach().cpu().numpy(), data_range=final[j].detach().cpu().numpy().max() - final[j].detach().cpu().numpy().min(), channel_axis=0)
                 LPIPS = loss_fn_vgg(2*orig-1.0, 2*torch.tensor(final[j]).to(torch.float32).cuda()-1.0)[0,0,0,0]
+                #FID = calculate_fid(real_loader, fake_loader)
+
                 metrics_sum[0].append(PSNR.item())
                 metrics_sum[1].append(SSIM)
                 metrics_sum[2].append(LPIPS.item())
+                #metrics_sum[3].append(FID.item())
 
             avg_psnr += np.mean(metrics_sum[0])
             avg_ssim += np.mean(metrics_sum[1])
             avg_lpips += np.mean(metrics_sum[2])
+            #avg_fid += np.mean(metrics_sum[3])
 
             idx_so_far += y_0.shape[0]
             num_idx = idx_so_far - idx_init
@@ -517,6 +521,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
                 std_psnr += np.std(metrics_sum[0], ddof=1)
                 std_ssim += np.std(metrics_sum[1], ddof=1)
                 std_lpips += np.std(metrics_sum[2], ddof=1)
+                #std_fid += np.std(metrics_sum[3], ddof=1)
                 pbar.set_description("PSNR:{:.4f} ({:.4f}), SSIM:{:.5f} ({:.5f}), LPIPS:{:.5f} ({:.5f})".format(
                     avg_psnr / num_idx, std_psnr / (i_img+1),
                     avg_ssim / num_idx, std_ssim / (i_img+1),
@@ -792,7 +797,7 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     return torch.stack(final_img_list)
 
-def rnhmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+def nanhmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     start_time = time.time()
 
