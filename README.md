@@ -60,13 +60,13 @@ sed -i 's/\bmodels\./bkse.models./g' bkse/models/backbones/resnet.py
 git clone https://github.com/LeviBorodenko/motionblur motionblur
 ```
 
-Install dependencies. Change {DOWNLOAD_DIR} in sed command to your root location.
+Install dependencies. Change {DIR} in sed command to your root location.
 
 ```
-conda env create -f environment.yml
+conda env create -f environment.ymlc
 conda activate NHMC
-sed -i 's/torch\._six\.string_classes/str/g' /{DOWNLOAD_DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
-sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /{DOWNLOAD_DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/lpips/lpips.py
+sed -i 's/torch\._six\.string_classes/str/g' /{DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
+sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /{DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/lpips/lpips.py
 ```
 
 If encounter this bug "ImportError: cannot import name 'VectorQuantizer2' from 'taming.modules.vqvae.quantize'". Download [quantize.py](https://github.com/CompVis/stable-diffusion/issues/72). Then replace this file miniconda/envs/NHMC/lib/python3.8/site-packages/taming/modules/vqvae/quantize.py
@@ -74,9 +74,9 @@ If encounter this bug "ImportError: cannot import name 'VectorQuantizer2' from '
 ## 4) Run experiment
 Pixel Space
 ```
-python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo hmc --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc 
+python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo nanhmc --timesteps 2 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/nanhmc 
 ```
-- algo : diffpir, reddiff, dps, daps, dmplug_adam, hmc
+- algo : diffpir, reddiff, dps, daps, dmplug_adam, nanhmc
 - timesteps : depends on algorithm. 3 for hmc, 3 for dmplug, 1000 for dps, 100 for diffpir
 - deg : forward operator. 
     - sr4
