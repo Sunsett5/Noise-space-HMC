@@ -210,7 +210,7 @@ def init_algo(opt, model, H_funcs=None, sigma_0=0.01, deg=None, betas=None):
         timesteps = opt.timesteps
         algo = DAPS(daps_cfg, model, H_funcs, sigma_0, timesteps, mcmc_num_steps, lr, lr_min_ratio, betas=betas)
 
-    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'hmc_blind_noise', 'langevin']:
+    elif opt.algo in ['reddiff', 'dmplug_adam', 'hmc', 'rnhmc', 'langevin']:
         algo = Unconditional(model, H_funcs, sigma_0)
     else:
         raise NotImplementedError
@@ -371,7 +371,7 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             generator=g,
         )
 
-    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'hmc_blind_noise' or opt.algo == 'langevin':
+    if opt.algo == 'dmplug_adam' or opt.algo == 'hmc' or opt.algo == 'rnhmc' or opt.algo == 'langevin':
         #skip = (opt.num_timesteps) // (opt.timesteps+1)
         skip = 750 // opt.timesteps
         seq = [skip * i for i in range(1, opt.timesteps+1)]
@@ -453,15 +453,12 @@ def sample_image(opt, config=None, model_config=None, device='cuda'):
             xt, xt_best = dmplug_adam(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'hmc':
             xt = hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
-            if opt.refine:
-                x_0 = refine_H_funcs.H(xt[-1:])
-                xt = iterative_sampling(x, n, b, seq_dps, seq_dps_next, algo_dps, opt, x_0, tqdm_disable=True)
         elif opt.algo == 'nuts':
             xt = nuts(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'reddiff':
             xt = reddiff(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
-        elif opt.algo == 'hmc_blind_noise':
-            xt = hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
+        elif opt.algo == 'rnhmc':
+            xt = rnhmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         elif opt.algo == 'langevin':
             xt = langevin(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig)
         else:
@@ -795,40 +792,7 @@ def hmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     return torch.stack(final_img_list)
 
-def sigma_schedule(x, sigma_start, sigma_mid, sigma_0, k):
-    """
-    Piecewise annealing schedule for sigma_y.
-
-    Parameters
-    ----------
-    x : float or np.ndarray
-        Normalized position in [0, 1].
-    sigma_start : float
-        Starting sigma value at x=0.
-    sigma_mid : float
-        Sigma value at transition point k.
-    sigma_0 : float
-        Final sigma value at x=1.
-    k : float
-        Transition point between linear and quadratic [0, 1].
-    """
-    x = np.asarray(x)
-
-    sigma = np.zeros_like(x, dtype=float)
-
-    # First part:
-    mask1 = x <= k
-    t = x[mask1]/(k)
-    sigma[mask1] = sigma_mid + (sigma_start - sigma_mid) * (1 - t)
-
-    # Second part:
-    mask2 = ~mask1
-    t = (x[mask2] - k) / (1 - k)  # normalize from 0 to 1 over the second part
-    sigma[mask2] = sigma_0 + (sigma_mid - sigma_0) * (1-t)**1.5
-
-    return sigma
-
-def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
+def rnhmc(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     start_time = time.time()
 
@@ -908,8 +872,8 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
             x_proposal = x_proposal.detach().requires_grad_(True)
 
             xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
-            predicted_meas = H_funcs.H(xt)
-            error = torch.sum((y_0 - predicted_meas)**2)
+
+            error = torch.sum((y_0 - H_funcs.H(xt))**2)
             if epoch < warm_up1:
                 loss = (1/(2 * sigma_y**2)) * error
             else:
@@ -968,248 +932,6 @@ def hmc_blind_noise(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
 
     return torch.stack(final_img_list)
 
-def langevin(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
-
-    orig_pic = []
-    for j in range(len(x_orig)):
-        orig_pic.append(inverse_data_transform(config, x_orig[j]))
-
-    x = x.detach().requires_grad_()
-    epsilon = opt.epsilon
-    if 'phase' in opt.deg:
-        warm_up = 100
-        sampling = 10
-        gamma_accept = 1.0
-        gamma_reject = 0.95
-        total_epochs = warm_up + 2 * sampling
-    else:
-        warm_up1 = 100
-        warm_up2 = 700
-        sampling = 1
-        gamma_accept = 1
-        gamma_reject = 1
-        total_epochs = warm_up1 + warm_up2 + sampling
-
-    psnr_list = []
-    loss_list = []
-    final_img_list = []
-
-    d = x.view(-1).numel()
-    d_y = y_0.view(-1).numel()
-    sigma_y = 2.5
-
-    epoch = 0
-    rejected = 0
-
-    xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
-    error = torch.sum((y_0 - H_funcs.H(xt))**2)
-    current_loss = (1/(2 * sigma_y**2)) * error
-    current_loss_grad = torch.autograd.grad(current_loss, x, retain_graph=False)[0]
-    total_current_loss = (1/2) * torch.sum(x.detach()**2, dim=(1, 2, 3)) + current_loss.detach()
-
-    while epoch < total_epochs:
-
-        if epoch == warm_up1 and epsilon > 0.02:
-            epsilon = 0.01
-
-        alpha0 = 0
-        beta0 = 0
-
-        x_proposal = x - epsilon * (x + current_loss_grad) + torch.randn_like(x) * math.sqrt(2 * epsilon)
-       
-        xt = iterative_sampling(x_proposal, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clip(-1, 1)
-        error = torch.sum((y_0 - H_funcs.H(xt))**2)
-        if epoch < warm_up1:
-            sigma_y = 0.5 + 2 * (1 - epoch / warm_up1)
-            proposal_loss = (1/(2 * sigma_y**2)) * error
-        else:
-            proposal_loss = (alpha0 + 0.5 * d_y) * torch.log(beta0 + 0.5 * error)
-
-        total_proposal_loss = (1/2) * torch.sum(x_proposal.detach()**2, dim=(1, 2, 3)) + proposal_loss.detach()
-
-        if epoch < warm_up1 + warm_up2 and total_proposal_loss < total_current_loss:
-            accept = True
-        else:
-            accept = False
-
-        print('current', total_current_loss.item(), 'proposal', total_proposal_loss.item())
-
-        if accept:
-            rejected=0
-            if epoch < warm_up1 + warm_up2:
-                epsilon = epsilon * gamma_accept
-            x_accept = xt.detach().clone()
-
-            if epoch >= warm_up1 + warm_up2:
-                final_img_list.append(x_accept[0])
-            epoch += 1
-
-            x = x_proposal.detach().clone().requires_grad_(True)
-            current_loss_grad = torch.autograd.grad(proposal_loss, x_proposal, retain_graph=False)[0]
-            total_current_loss = total_proposal_loss
-            
-            if opt.verbose:
-                x_save = [inverse_data_transform(config, y) for y in xt.detach()]
-                for j in range(len(x_save)):
-                    tvu.save_image(
-                        x_save[j], os.path.join(opt.image_folder, f"langevin_{epoch}.png")
-                    )
-                    mse = torch.mean((x_save[j] - orig_pic[j]) ** 2)
-                    psnr = 10 * torch.log10(1 / mse)
-                    psnr_list.append(psnr.item())
-                    loss_list.append(total_current_loss.item())
-                    print('epoch', epoch, 'PSNR:', psnr.item(), 'sigma_y', sigma_y, 'epsilon', epsilon, 'ratio', torch.linalg.norm(x).item()/math.sqrt(d))
-                    discrep = y_0 - H_funcs.H(xt)
-                    print('data fidelity:', torch.sum(discrep**2).item()/(d_y))
-        else:
-            rejected += 1
-            if rejected >= 10 and epoch >= warm_up1 + warm_up2:
-                break
-            if opt.verbose: print(rejected, 'rejected', epsilon, 'epsilon')
-            if epoch < warm_up1 + warm_up2:
-                epsilon = epsilon * gamma_reject
-
-    if len(final_img_list) == 0:
-        final_img_list.append(x_accept[0])
-
-    return torch.stack(final_img_list)
-
-def refine(xt, n, b, seq, seq_next, algo, y_0, opt):
-    skip = 10
-    seq = list(range(skip, 750, skip))
-    seq_next = [-1] + list(seq[:-1])
-
-    for i, j in tqdm(zip(seq_next[1:], seq[1:]), disable=False):
-        t = (torch.ones(n) * i).to(xt.device)
-        next_t = (torch.ones(n) * j).to(xt.device)
-        at = compute_alpha(b, t.long())
-        at_next = compute_alpha(b, next_t.long())
-        #x0_t, add_up = algo.cal_x0(xt, t, at, at_next, y_0, opt.noise)
-        xt_next = algo.optimize_xt_next(xt, at_next, at)
-        xt = xt_next
-
-    for i, j in tqdm(zip(reversed(seq), reversed(seq_next)), disable=False):
-        t = (torch.ones(n) * i).to(xt.device)
-        next_t = (torch.ones(n) * j).to(xt.device)
-        at = compute_alpha(b, t.long())
-        at_next = compute_alpha(b, next_t.long())
-        x0_t, add_up = algo.cal_x0(xt, t, at, at_next, y_0, opt.noise)
-        xt_next = algo.map_back(x0_t, y_0, add_up, at_next, at)
-        xt = xt_next
-
-    return xt
-
-def nuts(x_init, n, b, seq, seq_next, algo, opt, y_0, H_funcs, x_orig):
-
-    device = x_init.device
-    x_curr = x_init.clone()
-    x_shape = x_curr.shape
-
-    # Convert y_0 to the same device
-    y_0 = y_0.to(device)
-    orig_pic = [inverse_data_transform(config, xi) for xi in x_orig]
-
-    sigma_y_schedule = [1.0, 0.5, 0.2, 0.1]
-    num_samples_per_stage = 3
-    warmup_steps_per_stage = 2
-
-    all_samples = []
-
-    for stage, sigma_y_t in enumerate(sigma_y_schedule, 1):
-        if opt.verbose:
-            print(f"\n=== Annealing stage {stage}/{len(sigma_y_schedule)}: σ_y = {sigma_y_t} ===")
-
-        # --- Define model for this stage ---
-        def model():
-            # Use a standard normal prior on x
-            x = pyro.sample("x", dist.Normal(torch.zeros_like(x_curr), torch.ones_like(x_curr)).to_event(1))
-            # Compute log-likelihood safely
-            with torch.no_grad():  # optional if iterative_sampling has no grad
-                xt = iterative_sampling(x, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clamp(-1,1)
-                residual = H_funcs.H(xt) - y_0
-                log_lik = -0.5 * torch.sum(residual**2) / (sigma_y_t**2)
-            pyro.factor("log_lik", log_lik)
-
-        # --- Setup NUTS ---
-        # Warm start: provide initial value for 'x'
-        initial_params = {"x": x_curr.clone()}
-        nuts_kernel = NUTS(model, adapt_step_size=True)
-        mcmc_run = MCMC(
-            nuts_kernel,
-            num_samples=num_samples_per_stage,
-            warmup_steps=warmup_steps_per_stage,
-            initial_params=initial_params
-        )
-
-        
-        mcmc_run.run()
-
-        # Get samples
-        samples = mcmc_run.get_samples()["x"]  # shape [num_samples, x_dim]
-        all_samples.append(samples)
-
-        # Warm start next stage with last sample
-        x_curr = samples[-1].detach().clone()
-
-        # Optionally save images and compute PSNR
-        xt_curr = iterative_sampling(x_curr, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True).clamp(-1,1)
-        if opt.verbose:
-            x_save = [inverse_data_transform(config, y) for y in xt_curr]
-            for j, img in enumerate(x_save):
-                tvu.save_image(img, os.path.join(opt.image_folder, f"hmc_{stage}.png"))
-                mse = torch.mean((img - orig_pic[j])**2)
-                psnr = 10 * torch.log10(1. / mse)
-                print(f"Stage {stage}, Sample {j}, PSNR: {psnr.item():.2f}, sigma_y: {sigma_y_t}")
-
-    # Concatenate all samples across stages
-    final_samples = torch.cat(all_samples, dim=0)
-    print("\nSampling complete. Total posterior samples:", final_samples.shape[0])
-    return final_samples
-
-def warm_start(x, n, b, seq, seq_next, algo, opt, y_0, H_funcs, sigma_y, orig_pic):
-    x_param = torch.nn.Parameter(x.detach().clone())  
-
-    # Define optimizer
-    optimizer = torch.optim.LBFGS(
-        [x_param], 
-        lr=1.0,       # Acts as max step size; LBFGS will do line search
-        max_iter=5,  # Max number of iterations per call
-        history_size=10
-    )
-
-    # Define closure for LBFGS
-    def closure():
-        optimizer.zero_grad()
-        
-        xt = iterative_sampling(
-            x_param, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=True
-        ).clip(-1, 1)
-        
-        # Measurement prediction
-        predicted_meas = H_funcs.H(xt)
-        
-        # Loss = prior term + likelihood term
-        meas_loss = torch.sum((y_0 - predicted_meas)**2)
-        total_loss = (0.5 * torch.sum(x_param**2) 
-                    + (0.5 / sigma_y**2) * meas_loss)
-        
-        total_loss.backward()
-
-        x_save = [inverse_data_transform(config, y) for y in xt.detach()]
-        for j in range(len(x_save)):
-            mse = torch.mean((x_save[j].to(device) - orig_pic[j]) ** 2)
-            psnr = 10 * torch.log10(1 / mse)
-
-            print('warm_start', 'PSNR:', psnr.item())
-
-        return total_loss
-
-    # Run a fixed number of LBFGS steps
-    for _ in range(10):  # Outer loop to allow line search to converge multiple times
-        optimizer.step(closure)
-
-    # Use the optimized value for HMC initialization
-    return x_param.detach().clone().requires_grad_(True)
 
 def iterative_sampling(xt, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=False):
 
@@ -1223,22 +945,12 @@ def iterative_sampling(xt, n, b, seq, seq_next, algo, opt, y_0, tqdm_disable=Fal
         xt_next = algo.map_back(x0_t, y_0, add_up, at_next, at)
         xt = xt_next
 
-        """ if i % 100 == 1 or i==999:
-            x_save = [inverse_data_transform(config, y) for y in xt]
-            for j, img in enumerate(x_save):
-                tvu.save_image(img, os.path.join(opt.image_folder, f"iter_{i}.png"))
-                print(f"Sample {i}") """
-
+        #if i % 100 == 1 or i==999:
+        """ x_save = [inverse_data_transform(config, y) for y in xt]
+        for j, img in enumerate(x_save):
+            tvu.save_image(img, os.path.join(opt.image_folder, f"iter_{i}.png")) """
 
     return xt
-
-
-def cosine_similarity(x, y, eps=1e-8):
-    dot = torch.sum(x * y)
-    norm_x = torch.norm(x)
-    norm_y = torch.norm(y)
-    return dot / (norm_x * norm_y + eps)
-
 
 def get_parser():
     parser = argparse.ArgumentParser()
