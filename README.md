@@ -46,16 +46,8 @@ mkdir -p exp/samples/celeba_hq
 
 ```
 
-### 3) Download test datasets
 
-```
-mkdir -p exp/datasets/ffhq
-mkdir -p exp/datasets/celeba_hq
-
-```
-
-
-### 4) Set environment
+### 3) Set environment
 
 We use the external codes for motion-blurring, non-linear deblurring, and model_loader.
 
@@ -79,7 +71,7 @@ sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, ma
 
 If encounter this bug "ImportError: cannot import name 'VectorQuantizer2' from 'taming.modules.vqvae.quantize'". Download [quantize.py](https://github.com/CompVis/stable-diffusion/issues/72). Then replace this file miniconda/envs/NHMC/lib/python3.8/site-packages/taming/modules/vqvae/quantize.py
 
-## 5) Run experiment
+## 4) Run experiment
 Pixel Space
 ```
 python3 main_sampling.py --ni --dataset ffhq --doc ffhq --algo hmc --timesteps 3 --deg inpaint_random --sigma_0 0.05  -i exp/samples/ffhq/inpaint_random/hmc 
