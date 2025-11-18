@@ -63,7 +63,7 @@ git clone https://github.com/LeviBorodenko/motionblur motionblur
 Install dependencies. Change {DIR} in sed command to your root location.
 
 ```
-conda env create -f environment.ymlc
+conda env create -f environment.yml
 conda activate NHMC
 sed -i 's/torch\._six\.string_classes/str/g' /{DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/torchvision/datasets/vision.py
 sed -i "s/torch\.load(model_path, map_location='cpu')/torch\.load(model_path, map_location='cpu', weights_only=True)/" /{DIR}/miniconda3/envs/NHMC/lib/python3.8/site-packages/lpips/lpips.py
